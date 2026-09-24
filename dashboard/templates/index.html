@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Cloud Security & Cost Copilot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>☁️ Cloud Security & Cost Copilot</h1>
+        <p class="subtitle">Rapport de scan AWS</p>
+    </header>
+
+    <section class="summary">
+        <div class="card high">
+            <span class="count">{{ counts.HIGH }}</span>
+            <span class="label">Critique</span>
+        </div>
+        <div class="card medium">
+            <span class="count">{{ counts.MEDIUM }}</span>
+            <span class="label">Moyen</span>
+        </div>
+        <div class="card low">
+            <span class="count">{{ counts.LOW }}</span>
+            <span class="label">Faible</span>
+        </div>
+        <div class="card total">
+            <span class="count">{{ total }}</span>
+            <span class="label">Total</span>
+        </div>
+    </section>
+
+    <section class="findings">
+        <h2>Findings détaillés</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Sévérité</th>
+                    <th>Règle</th>
+                    <th>Ressource</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in findings %}
+                <tr class="sev-{{ f.severity | lower }}">
+                    <td><span class="badge {{ f.severity | lower }}">{{ f.severity }}</span></td>
+                    <td>{{ f.rule_id }}</td>
+                    <td>{{ f.resource }}</td>
+                    <td>{{ f.message }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section class="analysis">
+        <h2>Analyse & recommandations</h2>
+        <pre>{{ explanation }}</pre>
+    </section>
+</body>
+</html>

@@ -1,0 +1,76 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #0f1117;
+    color: #e5e7eb;
+    padding: 2rem;
+}
+
+header { margin-bottom: 2rem; }
+header h1 { font-size: 1.8rem; }
+.subtitle { color: #9ca3af; margin-top: 0.25rem; }
+
+.summary {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.card {
+    flex: 1;
+    background: #1a1d29;
+    border-radius: 10px;
+    padding: 1.25rem;
+    text-align: center;
+    border: 1px solid #2a2e3d;
+}
+
+.card .count { display: block; font-size: 2rem; font-weight: 700; }
+.card .label { color: #9ca3af; font-size: 0.85rem; }
+
+.card.high .count { color: #ef4444; }
+.card.medium .count { color: #f59e0b; }
+.card.low .count { color: #3b82f6; }
+.card.total .count { color: #e5e7eb; }
+
+section { margin-bottom: 2rem; }
+h2 { margin-bottom: 1rem; font-size: 1.2rem; }
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #1a1d29;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+th, td {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #2a2e3d;
+    font-size: 0.9rem;
+}
+
+th { color: #9ca3af; font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
+
+.badge {
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.badge.high { background: #ef444433; color: #ef4444; }
+.badge.medium { background: #f59e0b33; color: #f59e0b; }
+.badge.low { background: #3b82f633; color: #3b82f6; }
+
+.analysis pre {
+    background: #1a1d29;
+    padding: 1.5rem;
+    border-radius: 10px;
+    white-space: pre-wrap;
+    font-family: inherit;
+    line-height: 1.6;
+    font-size: 0.9rem;
+}

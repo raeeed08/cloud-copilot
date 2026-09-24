@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Cloud Security &amp; Cost Copilot - Enterprise Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+        darkMode: "class",
+        theme: {
+            extend: {
+                colors: {
+                    "primary": "#00288e",
+                    "primary-container": "#1e40af",
+                    "primary-fixed-dim": "#b8c4ff",
+                    "surface": "#f8f9ff",
+                    "surface-container": "#e5eeff",
+                    "surface-container-low": "#eff4ff",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-high": "#dce9ff",
+                    "surface-container-highest": "#d3e4fe",
+                    "inverse-surface": "#213145",
+                    "on-surface": "#0b1c30",
+                    "on-surface-variant": "#444653",
+                    "on-secondary-fixed-variant": "#3f465c",
+                    "outline": "#757684",
+                    "outline-variant": "#c4c5d5",
+                    "error": "#ba1a1a",
+                    "error-container": "#ffdad6",
+                    "on-error-container": "#93000a"
+                },
+                fontFamily: {
+                    "headline-lg": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-md": ["JetBrains Mono"]
+                }
+            }
+        }
+    }
+</script>
+<style>
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    .material-symbols-outlined[data-weight="fill"] { font-variation-settings: 'FILL' 1; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #c4c5d5; border-radius: 4px; }
+    .stroke-amber { stroke: #F59E0B; }
+    .stroke-green { stroke: #10B981; }
+    .stroke-bg { stroke: #e2e8f0; }
+    .tab-active { background-color: rgba(30, 64, 175, 0.15); color: #00288e; font-weight: 600; border-left: 4px solid #00288e; }
+    .cloud-btn-active { border-bottom: 2px solid #00288e; color: #00288e; font-weight: 700; }
+</style>
+</head>
+<body class="bg-surface font-body-md text-on-surface antialiased flex h-screen overflow-hidden">
+
+<!-- SideNavBar -->
+<nav class="flex flex-col h-screen w-[260px] fixed left-0 top-0 z-40 bg-inverse-surface text-white border-r border-transparent">
+    <div class="px-6 pt-8 pb-6 border-b border-white/10 flex flex-col gap-1">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary-fixed-dim text-3xl">shield_moon</span>
+            <h1 class="font-headline-md text-xl font-bold text-primary-fixed-dim tracking-tight">Cloud Copilot</h1>
+        </div>
+        <p class="font-body-md text-xs text-gray-400">Production Security &amp; Cost Engine</p>
+    </div>
+    
+    <div class="flex-1 overflow-y-auto py-4 flex flex-col gap-1 px-3">
+        <button onclick="switchTab('overview')" id="nav-overview" class="w-full text-left text-gray-300 px-4 py-3 flex items-center gap-3 rounded-r-lg hover:bg-white/10 transition-all tab-active">
+            <span class="material-symbols-outlined" data-weight="fill">dashboard</span>
+            <span class="font-body-md font-medium text-sm">Overview</span>
+        </button>
+        
+        <button onclick="switchTab('cost')" id="nav-cost" class="w-full text-left text-gray-300 px-4 py-3 flex items-center gap-3 rounded-r-lg hover:bg-white/10 transition-all">
+            <span class="material-symbols-outlined">payments</span>
+            <span class="font-body-md font-medium text-sm">Cloud Cost</span>
+        </button>
+        
+        <button onclick="switchTab('scans')" id="nav-scans" class="w-full text-left text-gray-300 px-4 py-3 flex items-center gap-3 rounded-r-lg hover:bg-white/10 transition-all">
+            <span class="material-symbols-outlined">shield_lock</span>
+            <span class="font-body-md font-medium text-sm">Security Scans</span>
+        </button>
+        
+        <button onclick="switchTab('infrastructure')" id="nav-infrastructure" class="w-full text-left text-gray-300 px-4 py-3 flex items-center gap-3 rounded-r-lg hover:bg-white/10 transition-all">
+            <span class="material-symbols-outlined">cloud</span>
+            <span class="font-body-md font-medium text-sm">Infrastructure</span>
+        </button>
+        
+        <button onclick="openAccountsModal()" id="nav-accounts" class="w-full text-left text-gray-300 px-4 py-3 flex items-center gap-3 rounded-r-lg hover:bg-white/10 transition-all">
+            <span class="material-symbols-outlined">link</span>
+            <span class="font-body-md font-medium text-sm">Linked Accounts</span>
+        </button>
+        
+        <button onclick="switchTab('settings')" id="nav-settings" class="w-full text-left text-gray-300 px-4 py-3 flex items-center gap-3 rounded-r-lg hover:bg-white/10 transition-all mt-auto mb-2">
+            <span class="material-symbols-outlined">settings</span>
+            <span class="font-body-md font-medium text-sm">Settings</span>
+        </button>
+    </div>
+
+    <div class="border-t border-white/10 px-4 py-4 flex flex-col gap-2">
+        <div class="flex items-center justify-between text-xs text-gray-400">
+            <span>Read-Only Status</span>
+            <span class="text-green-400 flex items-center gap-1 font-semibold"><span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Verified</span>
+        </div>
+    </div>
+</nav>
+
+<!-- Main Content Wrapper -->
+<div class="flex-1 ml-[260px] flex flex-col h-screen overflow-hidden">
+    
+    <!-- TopNavBar -->
+    <header class="docked top-0 sticky flex justify-between items-center w-full h-16 px-6 bg-surface border-b border-outline-variant z-30">
+        <div class="flex items-center gap-8">
+            <h2 id="page-header-title" class="font-headline-sm text-lg font-black text-primary tracking-tight">Cloud Security &amp; Cost Copilot</h2>
+            
+            <nav class="hidden lg:flex items-center gap-4 mt-1 text-sm">
+                <button onclick="filterProvider('ALL')" id="cloud-btn-ALL" class="cloud-btn-active pb-1">All Cloud</button>
+                <button onclick="filterProvider('AWS')" id="cloud-btn-AWS" class="text-on-surface-variant font-medium hover:text-primary pb-1">AWS View</button>
+                <button onclick="filterProvider('Azure')" id="cloud-btn-Azure" class="text-on-surface-variant font-medium hover:text-primary pb-1">Azure View</button>
+                <button onclick="filterProvider('GCP')" id="cloud-btn-GCP" class="text-on-surface-variant font-medium hover:text-primary pb-1">GCP View</button>
+            </nav>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <!-- Linked Account Quick Selector -->
+            <button onclick="openAccountsModal()" class="flex items-center gap-2 bg-surface-container-high px-3 py-1.5 rounded-lg border border-outline-variant text-xs font-semibold text-on-surface hover:bg-surface-container-highest transition-colors">
+                <span class="material-symbols-outlined text-sm text-primary">cloud_done</span>
+                <span id="active-account-label">3 Cloud Accounts Linked</span>
+                <span class="material-symbols-outlined text-xs">arrow_drop_down</span>
+            </button>
+
+            <button onclick="triggerScan()" id="run-scan-btn" class="bg-primary text-white px-4 py-2 rounded-lg text-xs font-semibold hover:bg-primary-container transition-colors shadow-sm flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">play_arrow</span>
+                <span>Run Security Scan</span>
+            </button>
+
+            <!-- User Profile Avatar & Menu -->
+            <div class="flex items-center gap-2 pl-2 border-l border-outline-variant">
+                <img id="user-avatar" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150" alt="Avatar" class="w-8 h-8 rounded-full border border-primary/30 object-cover"/>
+                <div class="hidden xl:flex flex-col text-xs">
+                    <span id="user-name" class="font-bold text-on-surface">Sarah Connor</span>
+                    <span id="user-role" class="text-gray-500 text-[10px]">SecOps Administrator</span>
+                </div>
+                <button onclick="openLoginModal()" title="Switch Account / Login" class="p-1 text-gray-500 hover:text-primary rounded-full hover:bg-surface-variant">
+                    <span class="material-symbols-outlined text-base">login</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Data Canvas View Containers -->
+        <div class="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            
+            <!-- Toast Notification Banner -->
+            <div id="toast-banner" class="hidden mb-4 p-4 rounded-lg bg-green-100 border border-green-300 text-green-800 flex items-center justify-between">
+                <span id="toast-msg" class="text-sm font-medium">Scan finished! Results updated.</span>
+                <button onclick="document.getElementById('toast-banner').classList.add('hidden')" class="text-green-800 font-bold">×</button>
+            </div>
+
+            <!-- VIEW 1: OVERVIEW TAB -->
+            <div id="tab-content-overview" class="flex flex-col gap-6">
+                <!-- Score Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 flex flex-col hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="font-headline-sm text-lg font-bold text-on-surface mb-1">Security Score</h3>
+                                <p class="text-sm text-on-surface-variant">Overall posture across linked cloud accounts</p>
+                            </div>
+                            <span class="material-symbols-outlined text-outline">shield</span>
+                        </div>
+                        <div class="flex items-center gap-6 mt-2">
+                            <div class="relative w-24 h-24">
+                                <svg class="w-full h-full transform -rotate-90" viewbox="0 0 36 36">
+                                    <path class="stroke-bg fill-none stroke-[3]" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                                    <path id="overview-score-path" class="stroke-amber fill-none stroke-[3] drop-shadow-sm" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke-dasharray="35, 100"></path>
+                                </svg>
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <span id="overview-score-val" class="text-2xl font-bold text-on-surface">35</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <div class="flex items-center gap-1 text-red-600 text-sm font-medium">
+                                    <span class="material-symbols-outlined text-sm">warning</span>
+                                    <span>Action Required</span>
+                                </div>
+                                <div class="flex flex-wrap gap-2 mt-1">
+                                    <span id="badge-critical-count" class="text-xs bg-error-container text-on-error-container px-2 py-1 rounded font-mono font-medium">2 CRITICAL</span>
+                                    <span id="badge-high-count" class="text-xs bg-amber-100 text-amber-900 px-2 py-1 rounded font-mono font-medium">3 HIGH</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 flex flex-col hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="font-headline-sm text-lg font-bold text-on-surface mb-1">Cost Efficiency Score</h3>
+                                <p class="text-sm text-on-surface-variant">Resource utilization vs. monthly spend</p>
+                            </div>
+                            <span class="material-symbols-outlined text-outline">account_balance_wallet</span>
+                        </div>
+                        <div class="flex items-center gap-6 mt-2">
+                            <div class="relative w-24 h-24">
+                                <svg class="w-full h-full transform -rotate-90" viewbox="0 0 36 36">
+                                    <path class="stroke-bg fill-none stroke-[3]" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"></path>
+                                    <path class="stroke-green fill-none stroke-[3] drop-shadow-sm" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" stroke-dasharray="91, 100"></path>
+                                </svg>
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <span class="text-2xl font-bold text-on-surface">91</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <div class="flex items-center gap-1 text-green-600 text-sm font-medium">
+                                    <span class="material-symbols-outlined text-sm">trending_up</span>
+                                    <span>Optimal Spend Rate</span>
+                                </div>
+                                <div class="flex flex-wrap gap-2 mt-1">
+                                    <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded font-mono font-medium">$3,450 / MO SAVINGS FOUND</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Security Alerts Table -->
+                <div class="bg-surface-container-lowest border border-outline-variant rounded-xl flex flex-col overflow-hidden">
+                    <div class="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-bright">
+                        <h3 class="font-headline-sm text-base font-bold text-on-surface">Active Security Findings</h3>
+                        <button onclick="switchTab('scans')" class="text-primary text-sm font-medium hover:underline flex items-center gap-1">
+                            View All Scans <span class="material-symbols-outlined text-sm">arrow_forward</span>
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-outline-variant bg-surface-container-lowest text-xs font-semibold text-on-surface-variant uppercase">
+                                    <th class="px-6 py-3">Severity</th>
+                                    <th class="px-6 py-3">Provider</th>
+                                    <th class="px-6 py-3">Resource Name</th>
+                                    <th class="px-6 py-3">Rule Description</th>
+                                    <th class="px-6 py-3 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overview-findings-tbody" class="text-sm divide-y divide-outline-variant/30"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW 2: CLOUD COST TAB -->
+            <div id="tab-content-cost" class="hidden flex flex-col gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6">
+                        <span class="text-xs text-gray-500 font-medium uppercase">Current Monthly Spend</span>
+                        <div class="text-3xl font-bold text-primary mt-1">$14,280.00</div>
+                        <div class="text-xs text-gray-500 mt-2">Across AWS, Azure, GCP</div>
+                    </div>
+                    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6">
+                        <span class="text-xs text-gray-500 font-medium uppercase">Projected Savings</span>
+                        <div class="text-3xl font-bold text-green-600 mt-1">$3,450.00 / mo</div>
+                        <div class="text-xs text-green-700 mt-2">5 recommendations available</div>
+                    </div>
+                    <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6">
+                        <span class="text-xs text-gray-500 font-medium uppercase">Optimization Score</span>
+                        <div class="text-3xl font-bold text-on-surface mt-1">91 / 100</div>
+                        <div class="text-xs text-gray-500 mt-2">High Efficiency</div>
+                    </div>
+                </div>
+
+                <div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+                    <div class="px-6 py-4 border-b border-outline-variant bg-surface-bright">
+                        <h3 class="font-headline-sm text-base font-bold text-on-surface">Cost Optimization Recommendations</h3>
+                    </div>
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-outline-variant text-xs font-semibold text-on-surface-variant uppercase bg-surface-container-lowest">
+                                <th class="px-6 py-3">Provider</th>
+                                <th class="px-6 py-3">Resource</th>
+                                <th class="px-6 py-3">Issue / Opportunity</th>
+                                <th class="px-6 py-3">Est. Monthly Savings</th>
+                                <th class="px-6 py-3 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cost-recommendations-tbody" class="text-sm divide-y divide-outline-variant/30"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- VIEW 3: SECURITY SCANS TAB -->
+            <div id="tab-content-scans" class="hidden flex flex-col gap-6">
+                <div class="flex items-center justify-between bg-surface-container-lowest p-4 border border-outline-variant rounded-xl">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-primary text-2xl">security</span>
+                        <div>
+                            <h3 class="font-bold text-on-surface">Security Rules &amp; Vulnerability Scanner</h3>
+                            <p class="text-xs text-on-surface-variant">Active Read-Only Scanners: S3 Public Access, IAM MFA, IAM Wildcard Policies, Azure Storage, GCP IAM.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select id="severity-filter" onchange="applyFilters()" class="text-sm bg-surface border border-outline-variant rounded-lg px-3 py-1.5 focus:ring-primary">
+                            <option value="ALL">All Severities</option>
+                            <option value="CRITICAL">Critical Only</option>
+                            <option value="HIGH">High Only</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-outline-variant text-xs font-semibold text-on-surface-variant uppercase bg-surface-bright">
+                                <th class="px-6 py-3">Rule ID</th>
+                                <th class="px-6 py-3">Severity</th>
+                                <th class="px-6 py-3">Provider</th>
+                                <th class="px-6 py-3">Resource Name</th>
+                                <th class="px-6 py-3">Description</th>
+                                <th class="px-6 py-3 text-right">Remediation</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scans-full-tbody" class="text-sm divide-y divide-outline-variant/30"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- VIEW 4: INFRASTRUCTURE TAB -->
+            <div id="tab-content-infrastructure" class="hidden flex flex-col gap-6">
+                <div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden p-6">
+                    <h3 class="font-bold text-on-surface mb-2">Cloud Infrastructure Inventory</h3>
+                    <p class="text-xs text-on-surface-variant mb-4">Read-only inventory across AWS, Azure, and GCP resources.</p>
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-outline-variant text-xs font-semibold text-on-surface-variant uppercase bg-surface-bright">
+                                <th class="px-6 py-3">Provider</th>
+                                <th class="px-6 py-3">Resource Name</th>
+                                <th class="px-6 py-3">Type</th>
+                                <th class="px-6 py-3">Region</th>
+                                <th class="px-6 py-3">Compliance</th>
+                                <th class="px-6 py-3 text-right">Monthly Spend</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-tbody" class="text-sm divide-y divide-outline-variant/30"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- VIEW 5: SETTINGS TAB -->
+            <div id="tab-content-settings" class="hidden flex flex-col gap-6">
+                <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 max-w-2xl">
+                    <h3 class="font-bold text-lg text-on-surface mb-4">System &amp; Security Settings</h3>
+                    <div class="flex flex-col gap-4 text-sm">
+                        <div class="p-4 bg-surface rounded-lg border border-outline-variant">
+                            <h4 class="font-semibold mb-1">Access Mode</h4>
+                            <p class="text-xs text-gray-600">AWS / Azure / GCP credentials are strictly <strong>READ-ONLY</strong>. Automatic infrastructure mutation is permanently disabled.</p>
+                        </div>
+                        <div class="p-4 bg-surface rounded-lg border border-outline-variant">
+                            <h4 class="font-semibold mb-1">Rules Engine Frequency</h4>
+                            <select class="w-full mt-2 border border-outline-variant rounded p-2 text-sm">
+                                <option>Continuous / On Demand</option>
+                                <option>Every 1 Hour</option>
+                                <option>Daily at Midnight</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Copilot Chat Sidebar -->
+        <aside class="w-[340px] bg-surface-container-low border-l border-outline-variant flex flex-col z-20 shadow-lg">
+            <div class="p-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-xl">smart_toy</span>
+                    <h3 class="font-bold text-sm text-on-surface">Copilot AI Assistant</h3>
+                </div>
+                <span class="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded font-mono font-medium">ONLINE</span>
+            </div>
+            
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-4 flex flex-col gap-4 custom-scrollbar text-sm">
+                <div class="flex flex-col gap-1 max-w-[90%]">
+                    <span class="text-xs text-gray-500">Copilot</span>
+                    <div class="bg-surface-container-highest text-on-surface p-3 rounded-xl rounded-tl-none border border-outline-variant/30 text-xs leading-relaxed">
+                        Hello! I am monitoring your AWS, Azure, and GCP security posture. I detected <strong>2 Critical</strong> issues in S3 &amp; IAM. Ask me how to fix them or optimize your cloud costs!
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-4 py-2 bg-surface border-t border-outline-variant/50 flex flex-wrap gap-1">
+                <button onclick="sendQuickChat('How do I fix public S3 buckets?')" class="text-xs bg-surface-container-highest hover:bg-primary/10 text-primary px-2 py-1 rounded transition-colors">Fix S3 Bucket</button>
+                <button onclick="sendQuickChat('Where are my cost savings?')" class="text-xs bg-surface-container-highest hover:bg-primary/10 text-primary px-2 py-1 rounded transition-colors">Cost Savings</button>
+            </div>
+
+            <div class="p-4 border-t border-outline-variant bg-surface-container-lowest">
+                <form onsubmit="handleChatSubmit(event)" class="relative flex items-center">
+                    <input id="chat-input" class="w-full bg-surface border border-outline-variant rounded-lg pl-3 pr-10 py-2 text-xs focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary" placeholder="Ask Copilot about your cloud infrastructure..." type="text"/>
+                    <button type="submit" class="absolute right-2 p-1 text-primary hover:bg-primary/10 rounded transition-colors flex items-center justify-center">
+                        <span class="material-symbols-outlined text-base">send</span>
+                    </button>
+                </form>
+            </div>
+        </aside>
+    </main>
+</div>
+
+<!-- Modal 1: Linked Cloud Accounts Drawer -->
+<div id="accounts-modal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-surface-container-lowest rounded-xl max-w-2xl w-full border border-outline-variant shadow-2xl flex flex-col overflow-hidden">
+        <div class="px-6 py-4 border-b border-outline-variant flex items-center justify-between bg-surface-bright">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">cloud_done</span>
+                <h3 class="font-bold text-base text-on-surface">Linked Cloud Accounts Catalog</h3>
+            </div>
+            <button onclick="closeAccountsModal()" class="text-gray-500 hover:text-black font-bold text-lg">×</button>
+        </div>
+        <div class="p-6 flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-gray-500 uppercase">Active Connected Accounts</span>
+                <button onclick="openLinkWizardModal()" class="bg-primary text-white text-xs px-3 py-1.5 rounded-lg font-semibold hover:bg-primary-container transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">add</span> Link New Cloud Account
+                </button>
+            </div>
+            <div id="linked-accounts-list" class="flex flex-col gap-3 max-h-80 overflow-y-auto custom-scrollbar">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 2: Link Cloud Account Wizard -->
+<div id="link-wizard-modal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-surface-container-lowest rounded-xl max-w-lg w-full border border-outline-variant shadow-2xl flex flex-col overflow-hidden">
+        <div class="px-6 py-4 border-b border-outline-variant flex items-center justify-between bg-surface-bright">
+            <h3 class="font-bold text-base text-on-surface">Link New Read-Only Cloud Account</h3>
+            <button onclick="closeLinkWizardModal()" class="text-gray-500 hover:text-black font-bold text-lg">×</button>
+        </div>
+        <form onsubmit="handleLinkAccountSubmit(event)" class="p-6 flex flex-col gap-4">
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase block mb-1">Cloud Provider</label>
+                <select id="link-provider" class="w-full text-xs bg-surface border border-outline-variant rounded-lg p-2.5 font-medium">
+                    <option value="AWS">AWS (Amazon Web Services)</option>
+                    <option value="Azure">Azure (Microsoft Azure)</option>
+                    <option value="GCP">GCP (Google Cloud Platform)</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase block mb-1">Account / Environment Name</label>
+                <input id="link-name" required class="w-full text-xs bg-surface border border-outline-variant rounded-lg p-2.5" placeholder="e.g. AWS Staging Sandbox"/>
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase block mb-1">Role ARN / Credential Identifier</label>
+                <input id="link-identifier" required class="w-full text-xs bg-surface border border-outline-variant rounded-lg p-2.5 font-mono" placeholder="arn:aws:iam::123456789012:role/CopilotReadOnlyRole"/>
+            </div>
+            <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900 flex items-start gap-2">
+                <span class="material-symbols-outlined text-sm text-blue-700 mt-0.5">verified_user</span>
+                <span><strong>Read-Only Guarantee:</strong> Credentials are verified strictly for read-only access (`s3:Get*`, `iam:List*`). No infrastructure mutation capabilities exist.</span>
+            </div>
+            <button type="submit" class="w-full bg-primary text-white text-xs py-2.5 rounded-lg font-bold hover:bg-primary-container transition-colors shadow">
+                Connect Read-Only Account
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 3: Enterprise Login Gateway -->
+<div id="login-modal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-surface-container-lowest rounded-2xl max-w-md w-full border border-outline-variant shadow-2xl flex flex-col overflow-hidden">
+        <div class="px-8 pt-8 pb-4 text-center">
+            <span class="material-symbols-outlined text-primary text-4xl mb-2">shield_moon</span>
+            <h3 class="font-bold text-xl text-on-surface">Enterprise Sign In</h3>
+            <p class="text-xs text-gray-500 mt-1">Cloud Security &amp; Cost Copilot Gateway</p>
+        </div>
+        <form onsubmit="handleLoginSubmit(event)" class="px-8 pb-8 flex flex-col gap-4">
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase block mb-1">Work Email</label>
+                <input id="login-email" value="admin@copilot.io" required type="email" class="w-full text-xs bg-surface border border-outline-variant rounded-lg p-2.5"/>
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase block mb-1">Password</label>
+                <input id="login-password" value="admin123" required type="password" class="w-full text-xs bg-surface border border-outline-variant rounded-lg p-2.5"/>
+            </div>
+            <button type="submit" class="w-full bg-primary text-white text-xs py-2.5 rounded-lg font-bold hover:bg-primary-container transition-colors shadow">
+                Sign In to Copilot
+            </button>
+            <button type="button" onclick="closeLoginModal()" class="w-full bg-surface text-gray-700 border border-outline-variant text-xs py-2 rounded-lg font-medium hover:bg-surface-variant">
+                Continue as Guest Demo
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal 4: Remediation Code Modal -->
+<div id="remediation-modal" class="hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-surface-container-lowest rounded-xl max-w-xl w-full border border-outline-variant shadow-2xl flex flex-col overflow-hidden">
+        <div class="px-6 py-4 border-b border-outline-variant flex items-center justify-between bg-surface-bright">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary">terminal</span>
+                <h3 id="modal-title" class="font-bold text-base text-on-surface">Auto-Generated Remediation Code</h3>
+            </div>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-black font-bold text-lg">×</button>
+        </div>
+        <div class="p-6 flex flex-col gap-4">
+            <div>
+                <span id="modal-rule-id" class="text-xs bg-error-container text-on-error-container font-mono px-2 py-1 rounded">RULE_ID</span>
+                <p id="modal-desc" class="text-sm font-medium mt-2 text-on-surface">Description of vulnerability...</p>
+            </div>
+            <div>
+                <label class="text-xs font-bold text-gray-500 uppercase block mb-1">Terraform Remediation Snippet</label>
+                <pre id="modal-code" class="bg-inverse-surface text-green-300 p-4 rounded-lg text-xs font-mono overflow-x-auto max-h-60 custom-scrollbar"></pre>
+            </div>
+        </div>
+        <div class="px-6 py-4 border-t border-outline-variant bg-surface flex justify-between items-center">
+            <span class="text-xs text-gray-500">Read-Only Safe — Copy &amp; Apply via CI/CD</span>
+            <button onclick="copyModalCode()" id="copy-btn" class="bg-primary text-white text-xs px-4 py-2 rounded-lg font-medium hover:bg-primary-container transition-colors">Copy Code</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let globalScanData = null;
+let currentProviderFilter = 'ALL';
+let userSessionToken = null;
+
+async function fetchAllData() {
+    try {
+        const [scanRes, costRes, invRes, accRes] = await Promise.all([
+            fetch('/api/scan'),
+            fetch('/api/cost'),
+            fetch('/api/inventory'),
+            fetch('/api/accounts')
+        ]);
+
+        if (scanRes.ok) globalScanData = await scanRes.json();
+        const costData = costRes.ok ? await costRes.json() : null;
+        const invData = invRes.ok ? await invRes.json() : null;
+        const accData = accRes.ok ? await accRes.json() : null;
+
+        renderOverview();
+        if (costData) renderCost(costData);
+        renderScans();
+        if (invData) renderInventory(invData);
+        if (accData) renderAccounts(accData.accounts || []);
+    } catch (e) {
+        console.error('Error fetching API data:', e);
+    }
+}
+
+function renderOverview() {
+    if (!globalScanData) return;
+
+    let findings = globalScanData.findings || [];
+    if (currentProviderFilter !== 'ALL') {
+        findings = findings.filter(f => (f.provider || 'AWS').toUpperCase() === currentProviderFilter.toUpperCase());
+    }
+
+    const score = Math.round(globalScanData.security_score || 35);
+    const scoreValEl = document.getElementById('overview-score-val');
+    if (scoreValEl) scoreValEl.textContent = score;
+
+    const scorePath = document.getElementById('overview-score-path');
+    if (scorePath) scorePath.setAttribute('stroke-dasharray', `${score}, 100`);
+
+    const tbody = document.getElementById('overview-findings-tbody');
+    if (tbody) {
+        tbody.innerHTML = '';
+        findings.slice(0, 5).forEach(f => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-surface-container-low transition-colors h-14';
+
+            let sevBadge = f.severity === 'CRITICAL' ? 
+                '<span class="text-xs bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded">CRITICAL</span>' :
+                '<span class="text-xs bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">HIGH</span>';
+
+            tr.innerHTML = `
+                <td class="px-6">${sevBadge}</td>
+                <td class="px-6 font-mono text-xs font-bold text-primary">${f.provider || 'AWS'}</td>
+                <td class="px-6 font-mono text-xs font-semibold">${f.resource_name}</td>
+                <td class="px-6 text-xs text-gray-700 max-w-md truncate">${f.message}</td>
+                <td class="px-6 text-right">
+                    <button onclick="openRemediationModal('${f.rule_id}')" class="px-3 py-1 bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors text-xs font-semibold rounded-lg">
+                        View Fix
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+}
+
+function renderCost(costData) {
+    const tbody = document.getElementById('cost-recommendations-tbody');
+    if (!tbody || !costData.savings_recommendations) return;
+
+    let recs = costData.savings_recommendations;
+    if (currentProviderFilter !== 'ALL') {
+        recs = recs.filter(r => r.provider.toUpperCase() === currentProviderFilter.toUpperCase());
+    }
+
+    tbody.innerHTML = '';
+    recs.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-surface-container-low transition-colors h-14';
+        tr.innerHTML = `
+            <td class="px-6 font-mono text-xs font-bold text-primary">${r.provider}</td>
+            <td class="px-6 font-mono text-xs font-semibold">${r.resource_id}</td>
+            <td class="px-6 text-xs text-gray-700">${r.issue}</td>
+            <td class="px-6 font-bold text-green-600 text-xs">+$${r.monthly_savings.toFixed(2)}/mo</td>
+            <td class="px-6 text-right">
+                <button onclick="sendQuickChat('How do I apply fix for ${r.resource_id}?')" class="px-3 py-1 border border-outline-variant text-primary hover:bg-primary hover:text-white transition-colors text-xs font-medium rounded-lg">
+                    ${r.action}
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function renderScans() {
+    if (!globalScanData) return;
+    const tbody = document.getElementById('scans-full-tbody');
+    if (!tbody) return;
+
+    const filterSev = document.getElementById('severity-filter')?.value || 'ALL';
+    let findings = globalScanData.findings || [];
+
+    if (currentProviderFilter !== 'ALL') {
+        findings = findings.filter(f => (f.provider || 'AWS').toUpperCase() === currentProviderFilter.toUpperCase());
+    }
+    if (filterSev !== 'ALL') {
+        findings = findings.filter(f => f.severity === filterSev);
+    }
+
+    tbody.innerHTML = '';
+    findings.forEach(f => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-surface-container-low transition-colors h-14';
+
+        let sevBadge = f.severity === 'CRITICAL' ? 
+            '<span class="text-xs bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded">CRITICAL</span>' :
+            '<span class="text-xs bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded">HIGH</span>';
+
+        tr.innerHTML = `
+            <td class="px-6 font-mono text-xs font-bold">${f.rule_id}</td>
+            <td class="px-6">${sevBadge}</td>
+            <td class="px-6 font-mono text-xs font-bold text-primary">${f.provider || 'AWS'}</td>
+            <td class="px-6 font-mono text-xs font-semibold">${f.resource_name}</td>
+            <td class="px-6 text-xs text-gray-700">${f.message}</td>
+            <td class="px-6 text-right">
+                <button onclick="openRemediationModal('${f.rule_id}')" class="px-3 py-1 bg-primary text-white hover:bg-primary-container transition-colors text-xs font-semibold rounded-lg">
+                    View Code
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function renderInventory(invData) {
+    const tbody = document.getElementById('inventory-tbody');
+    if (!tbody) return;
+
+    let items = invData;
+    if (currentProviderFilter !== 'ALL') {
+        items = items.filter(i => i.provider.toUpperCase() === currentProviderFilter.toUpperCase());
+    }
+
+    tbody.innerHTML = '';
+    items.forEach(i => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-surface-container-low transition-colors h-14';
+
+        let compStyle = i.compliance.includes('Non-Compliant') ? 
+            'bg-red-100 text-red-800 font-bold' : 'bg-green-100 text-green-800 font-bold';
+
+        tr.innerHTML = `
+            <td class="px-6 font-mono text-xs font-bold text-primary">${i.provider}</td>
+            <td class="px-6 font-mono text-xs font-semibold">${i.name}</td>
+            <td class="px-6 text-xs text-gray-600">${i.type}</td>
+            <td class="px-6 text-xs text-gray-600">${i.region}</td>
+            <td class="px-6"><span class="text-xs px-2 py-0.5 rounded ${compStyle}">${i.compliance}</span></td>
+            <td class="px-6 text-right font-mono text-xs font-bold">$${i.cost_monthly.toFixed(2)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function renderAccounts(accounts) {
+    const container = document.getElementById('linked-accounts-list');
+    const label = document.getElementById('active-account-label');
+    if (label) label.textContent = `${accounts.length} Cloud Accounts Linked`;
+    if (!container) return;
+
+    container.innerHTML = '';
+    accounts.forEach(acc => {
+        const div = document.createElement('div');
+        div.className = 'p-3 bg-surface rounded-lg border border-outline-variant flex items-center justify-between text-xs';
+        div.innerHTML = `
+            <div class="flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary text-xl">cloud_queue</span>
+                <div>
+                    <div class="font-bold text-on-surface">${acc.name} <span class="text-[10px] font-normal text-gray-500">(${acc.provider})</span></div>
+                    <div class="font-mono text-[10px] text-gray-500">${acc.role_arn || acc.account_id || acc.subscription_id}</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="bg-green-100 text-green-800 px-2 py-0.5 rounded text-[10px] font-bold">READ-ONLY VERIFIED</span>
+                <button onclick="disconnectAccount('${acc.id}')" class="text-red-600 hover:text-red-800 text-[10px] font-bold border border-red-200 hover:bg-red-50 px-2 py-0.5 rounded">Disconnect</button>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function switchTab(tabId) {
+    ['overview', 'cost', 'scans', 'infrastructure', 'settings'].forEach(id => {
+        const content = document.getElementById(`tab-content-${id}`);
+        const navBtn = document.getElementById(`nav-${id}`);
+        if (content) content.classList.add('hidden');
+        if (navBtn) navBtn.classList.remove('tab-active');
+    });
+
+    const activeContent = document.getElementById(`tab-content-${tabId}`);
+    const activeNav = document.getElementById(`nav-${tabId}`);
+    if (activeContent) activeContent.classList.remove('hidden');
+    if (activeNav) activeNav.classList.add('tab-active');
+
+    const titleEl = document.getElementById('page-header-title');
+    if (titleEl) {
+        const titles = {
+            overview: 'Cloud Security & Cost Copilot - Overview',
+            cost: 'Cloud Cost Optimization & Spend Analytics',
+            scans: 'Security Scans & Compliance Engine',
+            infrastructure: 'Multi-Cloud Infrastructure Inventory',
+            settings: 'System & Security Settings'
+        };
+        titleEl.textContent = titles[tabId] || 'Cloud Security & Cost Copilot';
+    }
+}
+
+function filterProvider(provider) {
+    currentProviderFilter = provider;
+    ['ALL', 'AWS', 'Azure', 'GCP'].forEach(p => {
+        const btn = document.getElementById(`cloud-btn-${p}`);
+        if (btn) {
+            if (p === provider) btn.className = 'cloud-btn-active pb-1';
+            else btn.className = 'text-on-surface-variant font-medium hover:text-primary pb-1';
+        }
+    });
+
+    fetchAllData();
+}
+
+function applyFilters() {
+    renderScans();
+}
+
+async function triggerScan() {
+    const btn = document.getElementById('run-scan-btn');
+    if (btn) btn.innerHTML = '<span class="material-symbols-outlined animate-spin text-xs">refresh</span> Scanning...';
+
+    try {
+        const res = await fetch('/api/run-scan', { method: 'POST' });
+        if (res.ok) {
+            await fetchAllData();
+            showToast('Security scan completed successfully! Score & findings updated.');
+        }
+    } catch (e) {
+        console.error('Scan error:', e);
+    } finally {
+        if (btn) btn.innerHTML = '<span class="material-symbols-outlined text-sm">play_arrow</span> Run Security Scan';
+    }
+}
+
+function showToast(msg) {
+    const toast = document.getElementById('toast-banner');
+    const msgEl = document.getElementById('toast-msg');
+    if (toast && msgEl) {
+        msgEl.textContent = msg;
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 5000);
+    }
+}
+
+function openAccountsModal() { document.getElementById('accounts-modal')?.classList.remove('hidden'); }
+function closeAccountsModal() { document.getElementById('accounts-modal')?.classList.add('hidden'); }
+
+function openLinkWizardModal() { 
+    closeAccountsModal();
+    document.getElementById('link-wizard-modal')?.classList.remove('hidden'); 
+}
+function closeLinkWizardModal() { document.getElementById('link-wizard-modal')?.classList.add('hidden'); }
+
+function openLoginModal() { document.getElementById('login-modal')?.classList.remove('hidden'); }
+function closeLoginModal() { document.getElementById('login-modal')?.classList.add('hidden'); }
+
+async function handleLoginSubmit(e) {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            userSessionToken = data.session.token;
+            document.getElementById('user-name').textContent = data.session.name;
+            document.getElementById('user-role').textContent = data.session.role;
+            if (data.session.avatar) document.getElementById('user-avatar').src = data.session.avatar;
+            closeLoginModal();
+            showToast(`Welcome back, ${data.session.name}! Session authenticated.`);
+        } else {
+            alert('Invalid email or password');
+        }
+    } catch (err) {
+        console.error('Login error:', err);
+    }
+}
+
+async function handleLinkAccountSubmit(e) {
+    e.preventDefault();
+    const provider = document.getElementById('link-provider').value;
+    const name = document.getElementById('link-name').value;
+    const role_arn = document.getElementById('link-identifier').value;
+
+    try {
+        const res = await fetch('/api/accounts/connect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provider, name, role_arn })
+        });
+        if (res.ok) {
+            closeLinkWizardModal();
+            await fetchAllData();
+            showToast(`Successfully linked read-only account '${name}' (${provider})!`);
+        }
+    } catch (err) {
+        console.error('Link account error:', err);
+    }
+}
+
+async function disconnectAccount(accId) {
+    if (!confirm('Are you sure you want to disconnect this cloud account?')) return;
+    try {
+        const res = await fetch(`/api/accounts/${accId}`, { method: 'DELETE' });
+        if (res.ok) {
+            await fetchAllData();
+            showToast('Cloud account disconnected.');
+        }
+    } catch (err) {
+        console.error('Disconnect error:', err);
+    }
+}
+
+function openRemediationModal(ruleId) {
+    if (!globalScanData) return;
+    const finding = (globalScanData.findings || []).find(f => f.rule_id === ruleId);
+    
+    const modal = document.getElementById('remediation-modal');
+    const ruleEl = document.getElementById('modal-rule-id');
+    const descEl = document.getElementById('modal-desc');
+    const codeEl = document.getElementById('modal-code');
+
+    if (modal && ruleEl && descEl && codeEl) {
+        ruleEl.textContent = ruleId;
+        descEl.textContent = finding ? finding.message : 'Security vulnerability remediation';
+        codeEl.textContent = finding && finding.remediation ? finding.remediation.terraform : `# Terraform Remediation Code for ${ruleId}\nresource "aws_s3_bucket_public_access_block" "remediation" {\n  bucket = "${finding ? finding.resource_name : 'bucket'}"\n  block_public_acls = true\n  block_public_policy = true\n}`;
+        modal.classList.remove('hidden');
+    }
+}
+
+function closeModal() { document.getElementById('remediation-modal')?.classList.add('hidden'); }
+
+function copyModalCode() {
+    const code = document.getElementById('modal-code')?.textContent;
+    if (code) {
+        navigator.clipboard.writeText(code);
+        const btn = document.getElementById('copy-btn');
+        if (btn) {
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy Code', 2000);
+        }
+    }
+}
+
+async function handleChatSubmit(e) {
+    e.preventDefault();
+    const input = document.getElementById('chat-input');
+    if (!input || !input.value.trim()) return;
+
+    const userText = input.value.trim();
+    input.value = '';
+
+    appendChatMessage('You', userText, false);
+
+    try {
+        const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: userText })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            appendChatMessage('Copilot', data.reply, true, data.code);
+        }
+    } catch (err) {
+        console.error('Chat error:', err);
+    }
+}
+
+function sendQuickChat(msg) {
+    const input = document.getElementById('chat-input');
+    if (input) {
+        input.value = msg;
+        handleChatSubmit(new Event('submit'));
+    }
+}
+
+function appendChatMessage(sender, msg, isAi = true, code = null) {
+    const chatContainer = document.getElementById('chat-messages');
+    if (!chatContainer) return;
+
+    const div = document.createElement('div');
+    div.className = isAi ? 'flex flex-col gap-1 max-w-[95%]' : 'flex flex-col gap-1 max-w-[90%] self-end';
+
+    let codeBlock = code ? `<pre class="bg-inverse-surface text-green-300 p-2 rounded text-xs font-mono overflow-x-auto mt-2">${code}</pre>` : '';
+
+    div.innerHTML = `
+        <span class="text-xs text-gray-500 ${isAi ? 'ml-1' : 'mr-1 text-right'}">${sender}</span>
+        <div class="${isAi ? 'bg-surface-container-highest text-on-surface rounded-tl-none' : 'bg-primary text-white rounded-tr-none'} p-3 rounded-xl border border-outline-variant/30 text-xs leading-relaxed shadow-sm">
+            ${msg}
+            ${codeBlock}
+        </div>
+    `;
+
+    chatContainer.appendChild(div);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+document.addEventListener('DOMContentLoaded', fetchAllData);
+</script>
+</body>
+</html>
