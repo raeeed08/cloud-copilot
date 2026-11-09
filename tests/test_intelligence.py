@@ -139,3 +139,16 @@ def test_plan_works_in_a_fresh_process_without_a_scan() -> None:
         "assert p['current_score'] == 100, p\n"
     )
     subprocess.run([sys.executable, "-c", code], check=True, timeout=60)  # noqa: S603 - fixed code
+
+
+def test_metrics_restored_after_restart(scanned: Any, settings: Settings) -> None:
+    from cloud_copilot.metrics import POSTURE_SCORE
+    from cloud_copilot.service import CopilotService
+
+    score = scanned.latest()["score"]
+    POSTURE_SCORE.set(0)  # what a fresh process would report
+    restarted = CopilotService(settings)
+    try:
+        assert POSTURE_SCORE._value.get() == score > 0
+    finally:
+        restarted._executor.shutdown(wait=True)

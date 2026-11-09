@@ -117,6 +117,7 @@ class CopilotService:
         self._lock = threading.Lock()
         self._running: str | None = None
         self.llm_health: dict[str, Any] | None = None  # last real call: {"ok", "detail", "at"}
+        self.restore_metrics()
 
     # ------------------------------------------------------------------ AI provider
     def llm_config(self) -> LLMConfig:
@@ -347,18 +348,31 @@ class CopilotService:
 
     @staticmethod
     def _update_metrics(result: ScanResult) -> None:
+        CopilotService._publish_posture(result.findings, result.score)
+        for svc_result in result.services:
+            if svc_result.status.value == "error":
+                SERVICE_ERRORS.labels(provider=svc_result.provider.value, service=svc_result.service).inc()
+
+    @staticmethod
+    def _publish_posture(findings: list[Finding], score: int | None) -> None:
         FINDINGS.clear()
         for p in Provider:
             for s in Severity:
                 FINDINGS.labels(provider=p.value, severity=s.value).set(
-                    sum(1 for f in result.findings if f.provider is p and f.severity is s and not f.suppressed)
+                    sum(1 for f in findings if f.provider is p and f.severity is s and not f.suppressed)
                 )
-        if result.score is not None:
-            POSTURE_SCORE.set(result.score)
-        SAVINGS.set(sum(f.estimated_monthly_savings or 0 for f in result.findings if not f.suppressed))
-        for svc_result in result.services:
-            if svc_result.status.value == "error":
-                SERVICE_ERRORS.labels(provider=svc_result.provider.value, service=svc_result.service).inc()
+        if score is not None:
+            POSTURE_SCORE.set(score)
+        SAVINGS.set(sum(f.estimated_monthly_savings or 0 for f in findings if not f.suppressed))
+
+    def restore_metrics(self) -> None:
+        """After a restart, gauges would read 0 until the next scan: republish the latest stored scan."""
+        try:
+            scan = self.latest()
+            if scan:
+                self._publish_posture(self.repo.findings(scan["id"], limit=100000), scan.get("score"))
+        except Exception as exc:  # metrics must never prevent startup
+            log.warning("metrics_restore_failed", error=str(exc))
 
     # ------------------------------------------------------------------ queries
     def latest(self) -> dict[str, Any] | None:
