@@ -60,6 +60,7 @@ def test_gateway_retries_transient_errors(settings: Settings, fake_llm: Any) -> 
 
 
 def test_gateway_strips_reasoning_and_reports_every_model(settings: Settings, fake_llm: Any) -> None:
+    assert LLMGateway(settings, fake_llm(["| a<br>b | c<br/>d |"])).complete([]).text == "| a b | c d |"
     settings.llm_models = ["a"]
     assert LLMGateway(settings, fake_llm(["<think>hmm</think>\nOK"])).complete([]).text == "OK"
     settings.llm_models = ["m1", "m2"]

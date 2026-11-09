@@ -163,11 +163,13 @@ class Copilot:
         )
         system = (
             "You are Cloud Copilot, a senior cloud security and FinOps engineer who helps the user secure their "
-            f"AWS/Azure accounts. Answer in {self.language}, concisely, in Markdown. If the user just greets you "
+            "AWS/Azure accounts. Answer in the language of the question "
+            f"(default {self.language}), concisely, in Markdown. If the user just greets you "
             "or chats, answer briefly and naturally, summarise the posture in one sentence and suggest a next "
             "step; do not dump findings. For real questions give concrete, prioritised steps (CLI/Terraform when "
             "useful), prefer breaking attack paths first, cite knowledge passages as [n] and findings by rule ID. "
-            + GUARDRAILS
+            "Format: at most ~300 words; short headings and numbered steps; do NOT use Markdown tables (the "
+            "chat panel is narrow); put every command or Terraform snippet in a fenced code block. " + GUARDRAILS
         )
         messages: list[dict[str, str]] = [{"role": "system", "content": system}]
         for turn in (history or [])[-6:]:
@@ -183,7 +185,8 @@ class Copilot:
             }
         )
         try:
-            reply = self.gateway.complete(messages)
+            # Reasoning models spend part of the budget thinking; leave room for the visible answer.
+            reply = self.gateway.complete(messages, max_tokens=max(self.settings.llm_max_tokens, 2500))
             return ChatAnswer(
                 answer=red.restore(reply.text),
                 mode="llm",

@@ -30,7 +30,7 @@ images, and Prometheus/Grafana.
 | **MCP server** | 11 tools (incl. `get_attack_paths`, `get_remediation_plan`), 2 resources, 1 prompt, so Claude, Cursor or any agent can triage your cloud (stdio and streamable HTTP) |
 | **Workflow** | scan history and trend, suppressions with reason and expiry, CSV/Markdown export, Terraform fix per finding, `--fail-on CRITICAL` CI gate |
 | **DevOps** | multi-stage non-root image · Compose (Postgres, Prometheus, Grafana, Ollama, Jaeger) · Helm (HPA, PDB, CronJob, NetworkPolicy, ServiceMonitor, External Secrets, IRSA/WI) · Argo CD ApplicationSet · Terraform AWS (VPC, EKS, ECR, OIDC) and Azure (Container Apps, ACR, Key Vault) |
-| **Supply chain** | GitHub Actions: ruff, mypy, pytest (305 tests, 88% coverage), Bandit, pip-audit, npm audit, gitleaks, Trivy, Checkov, tflint, kubeconform, CodeQL, e2e on **kind**, multi-arch build, **cosign** keyless signing, SBOM, SLSA provenance, GitOps promotion |
+| **Supply chain** | GitHub Actions: ruff, mypy, pytest (309 tests, 88% coverage), Bandit, pip-audit, npm audit, gitleaks, Trivy, Checkov, tflint, kubeconform, CodeQL, e2e on **kind**, multi-arch build, **cosign** keyless signing, SBOM, SLSA provenance, GitOps promotion |
 
 ## Quick start (no cloud account needed)
 
@@ -122,7 +122,7 @@ attested → digest committed to `deploy/environments/staging.yaml` → Argo CD 
 ## Develop
 
 ```bash
-make check      # ruff, mypy, eslint, 305 tests + RAG eval, bandit, pip-audit, npm audit
+make check      # ruff, mypy, eslint, 309 tests + RAG eval, bandit, pip-audit, npm audit
 make tf-check   # terraform fmt/validate (all stacks)
 make docs       # regenerate docs/rules.md from the registry
 ```

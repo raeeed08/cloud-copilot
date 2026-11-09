@@ -23,6 +23,8 @@ from cloud_copilot.metrics import LLM_LATENCY, LLM_REQUESTS, LLM_TOKENS
 log = get_logger(__name__)
 # reasoning models (Qwen, DeepSeek-R1…) may inline their chain of thought; never show it to users
 THINK = re.compile(r"<think>.*?</think>", re.S)
+# Models put <br> in table cells; the UI never renders raw HTML, so turn it into a separator.
+BR = re.compile(r"<br\s*/?>", re.I)
 
 
 class LLMUnavailableError(RuntimeError):
@@ -96,7 +98,7 @@ class LLMGateway:
             model=model, messages=messages, max_tokens=max_tokens, temperature=temperature
         )
         elapsed = time.perf_counter() - started
-        text = THINK.sub("", resp.choices[0].message.content or "").strip()
+        text = BR.sub(" ", THINK.sub("", resp.choices[0].message.content or "")).strip()
         if not text:
             raise ValueError("empty completion (reasoning model ran out of max_tokens?)")
         usage = getattr(resp, "usage", None)
