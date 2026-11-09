@@ -1,6 +1,6 @@
 [project]
 name = "cloud-copilot"
-version = "2.0.0"
+version = "2.1.0"
 description = "Multi-cloud security & cost posture copilot: rule engine, LLM advisor with RAG, MCP server."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -21,6 +21,7 @@ dependencies = [
     "prometheus-client>=0.21",
     "typer>=0.13",
     "mcp>=1.2",
+    "cryptography>=43",
 ]
 
 [project.optional-dependencies]
@@ -84,6 +85,7 @@ ignore = ["S101", "S311", "RUF012", "B008", "PT018", "RUF001"]
 "src/cloud_copilot/store/migrations/**" = ["E501", "I001", "UP"]
 # "0.0.0.0" here is data being inspected, not a socket bind
 "src/cloud_copilot/llm/redaction.py" = ["S104"]
+"src/cloud_copilot/core/strategy.py" = ["E501"]  # policy snippets kept verbatim
 "src/cloud_copilot/providers/azure/*.py" = ["S104"]
 
 [tool.mypy]

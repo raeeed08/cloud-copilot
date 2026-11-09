@@ -25,6 +25,8 @@ def test_tools_and_annotations(scanned: Any) -> None:
         "get_compliance_status",
         "get_cost_overview",
         "run_scan",
+        "get_attack_paths",
+        "get_remediation_plan",
     } <= set(tools)
     assert tools["list_findings"].annotations.read_only_hint is True
     assert tools["run_scan"].annotations.read_only_hint is False
@@ -46,3 +48,12 @@ def test_tool_calls(scanned: Any) -> None:
 
     rule = _payload(asyncio.run(server.call_tool("get_rule", {"rule_id": "IAM-001"})))
     assert rule["severity"] == "CRITICAL"
+
+
+def test_strategy_tools(scanned: Any) -> None:
+    server = build_server(scanned)
+    paths = _payload(asyncio.run(server.call_tool("get_attack_paths", {})))
+    paths = paths if isinstance(paths, list) else [paths]
+    assert paths and paths[0]["break_first"]
+    plan = _payload(asyncio.run(server.call_tool("get_remediation_plan", {"phase": "now"})))
+    assert [p["id"] for p in plan["phases"]] == ["now"] and plan["guardrails"]

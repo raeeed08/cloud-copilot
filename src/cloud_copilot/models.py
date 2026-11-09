@@ -85,6 +85,7 @@ class Finding(BaseModel):
     estimated_monthly_savings: float | None = None
     details: dict[str, Any] = Field(default_factory=dict)
     suppressed: bool = False
+    console_url: str | None = None
 
     @staticmethod
     def make_id(rule_id: str, resource_id: str, region: str | None, account: str | None) -> str:
@@ -95,6 +96,7 @@ class Finding(BaseModel):
 class ServiceResult(BaseModel):
     provider: Provider
     service: str
+    account: str | None = None
     status: ServiceStatus
     resources: int = 0
     duration_ms: int = 0
@@ -129,3 +131,8 @@ class ScanResult(BaseModel):
     controls_failed: int = 0
     explanation: str | None = None
     error: str | None = None
+    targets: list[str] = Field(default_factory=list)
+    evaluated_rules: list[str] = Field(default_factory=list)
+    scenarios: list[dict[str, Any]] = Field(default_factory=list)
+    # raw normalised scanner output, per account then service; used for correlation, never persisted
+    raw: dict[str, dict[str, Any]] = Field(default_factory=dict, exclude=True)

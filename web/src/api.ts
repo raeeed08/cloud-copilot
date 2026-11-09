@@ -1,4 +1,14 @@
-import type { ChatAnswer, Finding, Framework, Info, Scan, TrendPoint } from "./types";
+import type {
+  ChatAnswer,
+  CloudAccount,
+  Finding,
+  Framework,
+  Info,
+  LLMSettings,
+  Plan,
+  Scan,
+  TrendPoint,
+} from "./types";
 
 const KEY_STORAGE = "cloud-copilot.api-key";
 
@@ -55,8 +65,29 @@ export const api = {
   trend: () => request<TrendPoint[]>("/api/v1/trend"),
   findings: (scanId?: string) => request<Finding[]>(`/api/v1/findings?limit=5000${scanId ? `&scan_id=${scanId}` : ""}`),
   compliance: () => request<{ frameworks: Framework[] }>("/api/v1/compliance"),
-  startScan: (providers?: string[]) =>
-    request<{ id: string }>("/api/v1/scans", { method: "POST", body: JSON.stringify({ providers, explain: true }) }),
+  startScan: (target: { account_ids?: string[]; demo?: boolean } = {}) =>
+    request<{ id: string }>("/api/v1/scans", { method: "POST", body: JSON.stringify({ ...target, explain: true }) }),
+  plan: () => request<Plan>("/api/v1/plan"),
+  accounts: () => request<CloudAccount[]>("/api/v1/accounts"),
+  addAccount: (body: {
+    name: string;
+    provider: string;
+    auth_method: string;
+    config: Record<string, unknown>;
+    secret: Record<string, string>;
+  }) => request<CloudAccount>("/api/v1/accounts", { method: "POST", body: JSON.stringify(body) }),
+  verifyAccount: (id: string) => request<CloudAccount>(`/api/v1/accounts/${id}/verify`, { method: "POST" }),
+  updateAccount: (id: string, body: { enabled?: boolean; name?: string }) =>
+    request<CloudAccount>(`/api/v1/accounts/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteAccount: (id: string) => request(`/api/v1/accounts/${id}`, { method: "DELETE" }),
+  llm: () => request<LLMSettings>("/api/v1/settings/llm"),
+  saveLlm: (body: { provider: string; base_url?: string; models?: string[]; api_key?: string; language?: string }) =>
+    request<LLMSettings>("/api/v1/settings/llm", { method: "PUT", body: JSON.stringify(body) }),
+  resetLlm: () => request<LLMSettings>("/api/v1/settings/llm", { method: "DELETE" }),
+  testLlm: () =>
+    request<{ ok: boolean; model?: string; latency_ms?: number; error?: string }>("/api/v1/settings/llm/test", {
+      method: "POST",
+    }),
   chat: (message: string, history: { role: "user" | "assistant"; content: string }[]) =>
     request<ChatAnswer>("/api/v1/chat", { method: "POST", body: JSON.stringify({ message, history }) }),
   suppress: (id: string, reason: string) =>

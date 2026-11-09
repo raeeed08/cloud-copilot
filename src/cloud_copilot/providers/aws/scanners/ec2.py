@@ -62,6 +62,7 @@ def _scan_region(ctx: AwsContext, region: str) -> list[dict[str, Any]]:
                     "public_ip": i.get("PublicIpAddress"),
                     "imdsv2_required": i.get("MetadataOptions", {}).get("HttpTokens") == "required",
                     "instance_profile": bool(i.get("IamInstanceProfile")),
+                    "security_groups": [g["GroupId"] for g in i.get("SecurityGroups", [])],
                     "launch_days": (datetime.now(UTC) - i["LaunchTime"]).days if i.get("LaunchTime") else None,
                 }
             )

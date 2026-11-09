@@ -287,3 +287,67 @@ h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: 
   .truncate { max-width: 160px; }
 }
 .stack > .pill { align-self: flex-start; }
+
+/* strategy, accounts, onboarding ------------------------------------------ */
+.section-title { font-size: 16px; margin: 8px 0 12px; }
+.scenarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+.scenario {
+  background: var(--surface); border: 1px solid var(--border); border-left: 5px solid var(--sev-high);
+  border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow);
+}
+.sev-border-critical { border-left-color: var(--sev-critical); }
+.sev-border-high { border-left-color: var(--sev-high); }
+.sev-border-medium { border-left-color: var(--sev-medium); }
+.scenario-title { font-size: 15px; text-transform: none; letter-spacing: 0; color: var(--text); margin: 4px 0 0; }
+.scenario p { margin: 0; }
+.chain { margin: 4px 0; padding-left: 20px; display: grid; gap: 6px; }
+.chain li::marker { color: var(--bad); font-weight: 700; }
+.chain-tags { display: inline-flex; gap: 4px; margin-left: 6px; vertical-align: middle; }
+.chain-tags .chip { text-decoration: none; color: var(--text); font-size: 11px; }
+.break-first { background: var(--good-soft); border-radius: 8px; padding: 8px 10px; display: grid; gap: 2px; }
+.break-first .small { color: var(--good); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; font-size: 11px; }
+.loop { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.phase-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.phase-tab {
+  all: unset; cursor: pointer; display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface);
+}
+.phase-tab.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.phase-tab:focus-visible { outline: 2px solid var(--accent); }
+.actions { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.action { border: 1px solid var(--border); border-radius: 10px; }
+.action.open { border-color: var(--accent); }
+.action-head {
+  all: unset; cursor: pointer; display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center;
+  padding: 10px 12px; width: 100%; box-sizing: border-box;
+}
+.action-head:focus-visible { outline: 2px solid var(--accent); }
+.action-title { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-weight: 500; }
+.action-body { padding: 0 14px 14px; display: grid; gap: 8px; }
+.action-body p { margin: 0; }
+.chev { color: var(--muted); }
+.table.compact td, .table.compact th { padding: 6px 8px; }
+.guardrails { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 16px; }
+.resolved { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+.paths { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.paths li { display: flex; gap: 10px; align-items: flex-start; }
+.accounts { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.account { border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: grid; gap: 8px; }
+.account-id { color: var(--muted); word-break: break-all; }
+.field { display: grid; gap: 4px; font-size: 13px; font-weight: 500; }
+.danger { color: var(--bad) !important; }
+.input.target { max-width: 240px; }
+.welcome { max-width: 760px; margin: 24px auto; }
+.welcome h1 { margin: 0 0 4px; font-size: 26px; }
+.steps { list-style: none; padding: 0; margin: 20px 0 0; display: grid; gap: 12px; }
+.steps li {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px;
+  display: grid; gap: 6px; justify-items: start;
+}
+.steps li.done { border-color: var(--good); }
+@media (max-width: 760px) {
+  .scenarios, .guardrails { grid-template-columns: 1fr; }
+  .action-head { grid-template-columns: auto 1fr auto; }
+  .action-meta { grid-column: 1 / -1; }
+  .input.target { max-width: 160px; }
+}

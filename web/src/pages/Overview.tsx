@@ -1,13 +1,15 @@
 import Markdown from "react-markdown";
 import { HBars, ScoreRing, SeverityStack, TrendChart, scoreTone } from "../components/charts";
 import { Card, ProviderTag, SeverityBadge, Stat, money } from "../components/ui";
-import type { Finding, Scan, TrendPoint } from "../types";
+import type { Finding, Plan, Scan, TrendPoint } from "../types";
 
-export function Overview({ scan, findings, trend, onOpen }: {
+export function Overview({ scan, findings, trend, plan, onOpen, onStrategy }: {
   scan: Scan;
   findings: Finding[];
   trend: TrendPoint[];
+  plan: Plan | null;
   onOpen: (f: Finding) => void;
+  onStrategy: () => void;
 }) {
   const s = scan.summary;
   const top = findings.filter((f) => !f.suppressed && (f.severity === "CRITICAL" || f.severity === "HIGH")).slice(0, 8);
@@ -48,7 +50,21 @@ export function Overview({ scan, findings, trend, onOpen }: {
         <Stat label="30-day spend" value={spend ? money(spend) : "—"} hint={(scan.costs ?? []).map((c) => c.provider.toUpperCase()).join(" + ")} />
       </div>
 
-      <Card className="span-7" title="AI briefing" action={<span className="muted small">grounded on this scan</span>}>
+      {plan && plan.scenarios.length > 0 && (
+        <Card className="span-12" title={`Attack paths (${plan.scenarios.length})`} action={<button className="btn btn-s" onClick={onStrategy}>Open strategy →</button>}>
+          <ul className="paths">
+            {plan.scenarios.slice(0, 4).map((s) => (
+              <li key={s.id}>
+                <SeverityBadge severity={s.severity} />
+                <span><strong>{s.title}</strong> <span className="small muted">→ {s.break_first}</span></span>
+              </li>
+            ))}
+          </ul>
+          {plan.resolved_since_last_scan > 0 && <p className="small good">✓ {plan.resolved_since_last_scan} finding(s) resolved since the previous scan.</p>}
+        </Card>
+      )}
+
+      <Card className="span-7" title="AI strategy briefing" action={<span className="muted small">grounded on this scan</span>}>
         <div className="prose">
           <Markdown>{scan.explanation || "_No briefing for this scan._"}</Markdown>
         </div>

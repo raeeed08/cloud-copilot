@@ -19,7 +19,6 @@ from cloud_copilot import __version__
 from cloud_copilot.api.routes.v1 import router as v1
 from cloud_copilot.api.security import RateLimiter
 from cloud_copilot.config import Settings, get_settings
-from cloud_copilot.llm.gateway import LLMGateway
 from cloud_copilot.log import configure_logging, get_logger
 from cloud_copilot.service import CopilotService, ScanInProgressError
 
@@ -36,6 +35,15 @@ SECURITY_HEADERS = {
     "Content-Security-Policy": (
         "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; frame-ancestors 'none'"
+    ),
+}
+# Swagger UI is served by FastAPI from jsDelivr: allow exactly that CDN on the docs page only.
+DOCS_HEADERS = {
+    **SECURITY_HEADERS,
+    "Content-Security-Policy": (
+        "default-src 'self'; img-src 'self' data: https://fastapi.tiangolo.com; "
+        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' "
+        "https://cdn.jsdelivr.net; connect-src 'self'; frame-ancestors 'none'"
     ),
 }
 
@@ -68,6 +76,8 @@ def create_app(settings: Settings | None = None, service: CopilotService | None 
     configure_logging(settings.log_level, settings.log_json)
     if settings.environment == "prod" and not settings.auth_enabled:
         raise RuntimeError("API_KEYS must be set when ENVIRONMENT=prod")
+    if settings.environment == "prod" and not settings.secret_key:
+        raise RuntimeError("SECRET_KEY must be set when ENVIRONMENT=prod (shared by every replica)")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -76,7 +86,7 @@ def create_app(settings: Settings | None = None, service: CopilotService | None 
             version=__version__,
             demo=settings.demo_mode,
             auth=settings.auth_enabled,
-            llm=LLMGateway(settings).available,
+            llm=app.state.service.llm_config().provider if app.state.service.llm_config().usable else "none",
         )
         if settings.scan_on_startup and app.state.service.latest() is None:
             with suppress(ScanInProgressError):
@@ -121,7 +131,8 @@ def create_app(settings: Settings | None = None, service: CopilotService | None 
         HTTP_REQUESTS.labels(request.method, route, str(response.status_code)).inc()
         HTTP_LATENCY.labels(request.method, route).observe(elapsed)
         response.headers["X-Request-ID"] = request_id
-        for k, v in SECURITY_HEADERS.items():
+        headers = DOCS_HEADERS if request.url.path == "/api/docs" else SECURITY_HEADERS
+        for k, v in headers.items():
             response.headers.setdefault(k, v)
         if route not in ("/healthz", "/readyz", "/metrics"):
             log.info(
@@ -152,11 +163,16 @@ def create_app(settings: Settings | None = None, service: CopilotService | None 
 
     @app.get("/api/v1/info", tags=["meta"])
     def info() -> dict[str, object]:
+        svc = app.state.service
+        llm = svc.llm_config()
         return {
             "version": __version__,
             "demo_mode": settings.demo_mode,
             "auth": settings.auth_enabled,
-            "llm": LLMGateway(settings).available,
+            "llm": llm.usable,
+            "llm_provider": llm.provider,
+            "llm_health": svc.llm_health,
+            "accounts": len(svc.accounts.list()),
             "providers": settings.providers,
             "rag_mode": "hybrid" if settings.embeddings_base_url else "bm25",
         }

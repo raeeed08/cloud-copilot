@@ -2,8 +2,8 @@ apiVersion: v2
 name: cloud-copilot
 description: Multi-cloud security & cost posture copilot (API, dashboard, scheduled scans, MCP server)
 type: application
-version: 0.2.0
-appVersion: "2.0.0"
+version: 0.3.0
+appVersion: "2.1.0"
 keywords: [security, cspm, finops, aws, azure, llm, mcp]
 home: https://github.com/raeeed08/cloud-copilot
 sources: [https://github.com/raeeed08/cloud-copilot]
