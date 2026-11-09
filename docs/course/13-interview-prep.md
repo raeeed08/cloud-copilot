@@ -25,6 +25,14 @@
   without it).
 - *Schema migration on live data*: adding NOT NULL JSON columns to a table with rows needs a server default;
   migrations run under a Postgres advisory lock so replicas don't race.
+- *The stale Docker image*: S: after a fix, the deployed container still crashed with the *same line numbers*.
+  T: find out why "build succeeded" didn't mean "new code". A: inspected the file inside the running container:
+  uv's build cache (a BuildKit cache mount) reused the wheel of our own package because its version hadn't
+  changed. Added `--reinstall-package cloud-copilot`. R: images always contain the committed code; I also
+  re-ran every live check. Lesson: verify the artifact, not the build log; caches key on what you tell them to.
+- *A crash only after restart*: `/plan` failed with `KeyError` when called before any scan in a fresh process
+  (the rule registry was loaded lazily). Tests missed it because the test process had it loaded already. Fixed
+  with eager loading, plus a regression test that runs in a **fresh interpreter**.
 - *Provider breaking change*: azurerm 5.x renamed arguments; pinned `< 5.0` and validated every stack in CI.
 
 ## B. Technical questions with model answers

@@ -69,10 +69,13 @@ def evaluate(rule: Rule, data: dict[str, Any], account: str | None) -> list[Find
 
 def score(findings: list[Finding], evaluated_rule_ids: set[str]) -> tuple[int | None, int, int]:
     """Weighted share of passing security/reliability controls (0-100). Cost rules don't affect the score."""
+    load_all()
     failed = {f.rule_id for f in findings if not f.suppressed}
     total_w = passed_w = 0
     passed = failed_n = 0
     for rid in evaluated_rule_ids:
+        if rid not in RULES:  # rule removed since that scan was stored
+            continue
         info = RULES[rid].info
         if info.category.value == "cost" or info.severity is Severity.INFO:
             continue

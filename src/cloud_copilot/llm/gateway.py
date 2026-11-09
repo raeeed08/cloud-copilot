@@ -8,6 +8,7 @@ LLM gateway: one OpenAI-compatible client for OpenRouter, Groq, OpenAI, Azure Op
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -20,6 +21,8 @@ from cloud_copilot.log import get_logger
 from cloud_copilot.metrics import LLM_LATENCY, LLM_REQUESTS, LLM_TOKENS
 
 log = get_logger(__name__)
+# reasoning models (Qwen, DeepSeek-R1…) may inline their chain of thought; never show it to users
+THINK = re.compile(r"<think>.*?</think>", re.S)
 
 
 class LLMUnavailableError(RuntimeError):
@@ -68,17 +71,17 @@ class LLMGateway:
     ) -> LLMReply:
         if not self.available:
             raise LLMUnavailableError("no AI provider configured (Settings → AI provider)")
-        last: Exception | None = None
+        errors: list[str] = []
         for model in self.models:
             try:
                 return self._call(model, messages, max_tokens or self.max_tokens, temperature)
             except Exception as exc:
-                last = exc
+                errors.append(f"{model}: {type(exc).__name__}: {str(exc)[:160]}")
                 LLM_REQUESTS.labels(model=model, outcome="error").inc()
                 log.warning("llm_model_failed", model=model, error=type(exc).__name__)
                 if getattr(exc, "status_code", None) in (401, 403):  # same key for every model: stop early
                     raise LLMUnavailableError("AI provider rejected the API key") from exc
-        detail = f"{type(last).__name__}: {str(last)[:240]}" if last else "unknown error"
+        detail = " | ".join(errors) if errors else "no model configured"
         raise LLMUnavailableError(f"all models failed ({detail})")
 
     @retry(
@@ -93,9 +96,9 @@ class LLMGateway:
             model=model, messages=messages, max_tokens=max_tokens, temperature=temperature
         )
         elapsed = time.perf_counter() - started
-        text = (resp.choices[0].message.content or "").strip()
+        text = THINK.sub("", resp.choices[0].message.content or "").strip()
         if not text:
-            raise ValueError("empty completion")
+            raise ValueError("empty completion (reasoning model ran out of max_tokens?)")
         usage = getattr(resp, "usage", None)
         reply = LLMReply(
             text=text,

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { api } from "../api";
 import type { ChatAnswer } from "../types";
 
@@ -77,7 +78,7 @@ export function Chat({ open, onClose, seed }: {
         {messages.map((m, i) => (
           <div key={i} className={`msg msg-${m.role}`}>
             <div className="msg-bubble">
-              {m.role === "assistant" ? <Markdown>{m.content}</Markdown> : m.content}
+              {m.role === "assistant" ? <Markdown remarkPlugins={[remarkGfm]}>{m.content}</Markdown> : m.content}
             </div>
             {m.meta && (
               <div className="msg-meta">

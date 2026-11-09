@@ -22,6 +22,7 @@ from typing import Any
 from cloud_copilot.config import Settings, get_settings
 from cloud_copilot.core.correlation import correlate
 from cloud_copilot.core.engine import ScanEngine, score
+from cloud_copilot.core.registry import load_all
 from cloud_copilot.core.strategy import build_plan
 from cloud_copilot.crypto import SecretBox
 from cloud_copilot.llm.advisor import Copilot
@@ -104,6 +105,7 @@ def merge(results: list[ScanResult], targets: list[Target]) -> ScanResult:
 class CopilotService:
     def __init__(self, settings: Settings | None = None, engine: ScanEngine | None = None) -> None:
         self.settings = settings or get_settings()
+        load_all()
         self.db = Database(self.settings.database_url)
         self.db.migrate()
         self.repo = Repository(self.db)
@@ -178,7 +180,8 @@ class CopilotService:
             return {"ok": False, "error": "Not configured: choose a provider and paste an API key."}
         started = time.perf_counter()
         try:
-            reply = gw.complete([{"role": "user", "content": "Reply with exactly: OK"}], max_tokens=10)
+            # generous budget: reasoning models spend tokens thinking before answering
+            reply = gw.complete([{"role": "user", "content": "Reply with exactly: OK"}], max_tokens=300)
         except LLMUnavailableError as exc:
             self._record_llm(False, str(exc))
             return {"ok": False, "error": str(exc)}

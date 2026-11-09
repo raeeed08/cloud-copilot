@@ -132,7 +132,7 @@ def test_llm_settings_lifecycle(client: TestClient, settings: Settings) -> None:
     body = r.json()
     assert body["configured"] and body["provider"] == "groq" and body["key_hint"] == "…abcd"
     assert "gsk_test" not in r.text and body["base_url"] == "https://api.groq.com/openai/v1"
-    assert body["models"][0] == "llama-3.3-70b-versatile"
+    assert body["models"][0] == "openai/gpt-oss-120b"
     svc: CopilotService = client.app.state.service  # type: ignore[attr-defined]
     assert svc.copilot.gateway.config.provider == "groq" and svc.copilot.gateway.available  # live reload
     # keep the stored key when the field is omitted
