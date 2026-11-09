@@ -101,6 +101,8 @@ flowchart LR
   API --> Prom[Prometheus/Grafana]
 ```
 
+📚 **Learn it from zero to hero:** [the Cloud Copilot course](docs/course/README.md) (15 chapters + interview prep).
+
 Details: [architecture](docs/architecture.md) · [threat model](docs/threat-model.md) ·
 [rule catalogue](docs/rules.md) · [ADRs](docs/adr) · [security policy](SECURITY.md)
 
