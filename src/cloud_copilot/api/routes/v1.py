@@ -14,7 +14,8 @@ from pydantic import BaseModel, Field
 from cloud_copilot.api.security import require_api_key
 from cloud_copilot.core.registry import RULES, SCANNERS, load_all
 from cloud_copilot.models import Finding, Provider, RuleInfo
-from cloud_copilot.service import CopilotService, ScanInProgressError
+from cloud_copilot.providers.accounts import AccountError
+from cloud_copilot.service import CopilotService, NotFoundError, ScanInProgressError
 
 router = APIRouter(prefix="/api/v1", dependencies=[Depends(require_api_key)])
 Principal = Annotated[str, Depends(require_api_key)]
@@ -31,6 +32,32 @@ Svc = Annotated[CopilotService, Depends(svc)]
 class ScanRequest(BaseModel):
     providers: list[Provider] | None = None
     explain: bool = True
+    account_ids: list[str] | None = Field(default=None, description="Connected accounts to scan (default: all)")
+    demo: bool | None = Field(default=None, description="true = scan the demo estate")
+
+
+class AccountCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    provider: Literal["aws", "azure"]
+    auth_method: str
+    config: dict[str, Any] = Field(default_factory=dict)
+    secret: dict[str, str] = Field(default_factory=dict)
+    verify: bool = True
+
+
+class AccountUpdate(BaseModel):
+    name: str | None = Field(default=None, max_length=128)
+    enabled: bool | None = None
+    config: dict[str, Any] | None = None
+    secret: dict[str, str] | None = None
+
+
+class LLMSettings(BaseModel):
+    provider: str = Field(pattern="^(groq|openrouter|openai|ollama|custom)$")
+    base_url: str | None = Field(default=None, max_length=300)
+    models: list[str] | None = Field(default=None, max_length=10)
+    api_key: str | None = Field(default=None, max_length=400, description="omit to keep the stored key")
+    language: str | None = Field(default=None, max_length=40)
 
 
 class ChatTurn(BaseModel):
@@ -53,9 +80,13 @@ class SuppressRequest(BaseModel):
 def create_scan(body: ScanRequest, request: Request, s: Svc, who: Principal) -> dict[str, Any]:
     request.app.state.limiter.check(who, "scan", s.settings.scan_rate_limit_per_minute)
     try:
-        scan_id, _ = s.start_scan(body.providers, trigger="api", explain=body.explain)
+        scan_id, _ = s.start_scan(
+            body.providers, trigger="api", explain=body.explain, account_ids=body.account_ids, demo=body.demo
+        )
     except ScanInProgressError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, f"scan {exc} already running") from exc
+    except NotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     return {"id": scan_id, "status": "queued", "href": f"/api/v1/scans/{scan_id}"}
 
 
@@ -268,3 +299,90 @@ def knowledge_search(
         {"id": h.chunk.id, "title": h.chunk.title, "score": round(h.score, 4), "text": h.chunk.text}
         for h in s.retriever.search(q, k=k)
     ]
+
+
+# ------------------------------------------------------------------ strategy
+@router.get("/plan", tags=["posture"])
+def plan(s: Svc, scan_id: str | None = None) -> dict[str, Any]:
+    """Phased remediation strategy + attack paths + diff with the previous scan."""
+    try:
+        return s.plan(scan_id)
+    except NotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+
+
+@router.get("/scans/{scan_id}/diff", tags=["scans"])
+def scan_diff(scan_id: str, s: Svc) -> dict[str, Any]:
+    if not s.repo.get_scan(scan_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "scan not found")
+    return s.repo.diff(scan_id)
+
+
+# ------------------------------------------------------------------ accounts
+@router.get("/accounts", tags=["accounts"])
+def list_accounts(s: Svc) -> list[dict[str, Any]]:
+    return s.accounts.list()
+
+
+@router.post("/accounts", status_code=status.HTTP_201_CREATED, tags=["accounts"])
+def create_account(body: AccountCreate, s: Svc) -> dict[str, Any]:
+    try:
+        return s.add_account(
+            body.name,
+            body.provider,
+            body.auth_method,
+            body.config,
+            {k: v.strip() for k, v in body.secret.items() if v},
+            verify=body.verify,
+        )
+    except AccountError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+
+
+@router.patch("/accounts/{account_id}", tags=["accounts"])
+def update_account(account_id: str, body: AccountUpdate, s: Svc) -> dict[str, Any]:
+    updated = s.accounts.update(
+        account_id, name=body.name, enabled=body.enabled, config=body.config, secret=body.secret
+    )
+    if not updated:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+    return updated
+
+
+@router.post("/accounts/{account_id}/verify", tags=["accounts"])
+def verify_account(account_id: str, s: Svc) -> dict[str, Any]:
+    try:
+        return s.verify_account(account_id)
+    except NotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found") from exc
+
+
+@router.delete("/accounts/{account_id}", tags=["accounts"])
+def delete_account(account_id: str, s: Svc) -> dict[str, str]:
+    if not s.accounts.delete(account_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
+    return {"status": "deleted"}
+
+
+# ------------------------------------------------------------------ AI provider settings
+@router.get("/settings/llm", tags=["settings"])
+def get_llm(s: Svc) -> dict[str, Any]:
+    return s.llm_public()
+
+
+@router.put("/settings/llm", tags=["settings"])
+def put_llm(body: LLMSettings, s: Svc) -> dict[str, Any]:
+    if body.provider == "custom" and not body.base_url:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "base_url is required for a custom provider")
+    return s.set_llm(body.provider, body.base_url, body.models, body.api_key, body.language)
+
+
+@router.delete("/settings/llm", tags=["settings"])
+def reset_llm(s: Svc) -> dict[str, Any]:
+    return s.reset_llm()
+
+
+@router.post("/settings/llm/test", tags=["settings"])
+def test_llm(request: Request, s: Svc, who: Principal) -> dict[str, Any]:
+    request.app.state.limiter.check(who, "llm-test", 10)
+    return s.test_llm()

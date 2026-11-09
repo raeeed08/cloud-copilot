@@ -71,6 +71,9 @@ class Repository:
             row.summary = summarise(result.findings)
             row.explanation = result.explanation
             row.error = result.error
+            row.targets = result.targets
+            row.evaluated_rules = result.evaluated_rules
+            row.scenarios = result.scenarios
             s.execute(delete(FindingRow).where(FindingRow.scan_id == scan_id))
             s.add_all(
                 FindingRow(
@@ -142,6 +145,8 @@ class Repository:
             "controls_failed": row.controls_failed,
             "summary": row.summary or {},
             "accounts": row.accounts or {},
+            "targets": row.targets or [],
+            "scenario_count": len(row.scenarios or []),
             "error": row.error,
         }
         if not light:
@@ -150,8 +155,61 @@ class Repository:
                 inventory=row.inventory or {},
                 costs=row.costs or [],
                 explanation=row.explanation,
+                scenarios=row.scenarios or [],
+                evaluated_rules=row.evaluated_rules or [],
             )
         return d
+
+    def previous_scan_id(self, scan_id: str) -> str | None:
+        """Most recent completed scan before ``scan_id`` that covered the same targets."""
+        with self.db.session() as s:
+            cur = s.get(ScanRow, scan_id)
+            if not cur:
+                return None
+            rows = s.scalars(
+                select(ScanRow)
+                .where(ScanRow.started_at < cur.started_at)
+                .where(ScanRow.status.in_([ScanStatus.SUCCEEDED.value, ScanStatus.PARTIAL.value]))
+                .order_by(ScanRow.started_at.desc())
+                .limit(50)
+            ).all()
+            for r in rows:
+                if sorted(r.targets or []) == sorted(cur.targets or []):
+                    return r.id
+            return None
+
+    def finding_ids(self, scan_id: str) -> set[str]:
+        with self.db.session() as s:
+            return set(s.scalars(select(FindingRow.finding_id).where(FindingRow.scan_id == scan_id)).all())
+
+    def diff(self, scan_id: str) -> dict[str, Any]:
+        """New / resolved / persisting findings compared with the previous scan of the same targets."""
+        prev = self.previous_scan_id(scan_id)
+        current = self.finding_ids(scan_id)
+        if not prev:
+            return {"previous_scan_id": None, "new": sorted(current), "resolved": [], "persisting": []}
+        before = self.finding_ids(prev)
+        resolved_rows: list[dict[str, Any]] = []
+        with self.db.session() as s:
+            for r in s.scalars(
+                select(FindingRow).where(FindingRow.scan_id == prev).where(FindingRow.finding_id.in_(before - current))
+            ).all():
+                p = r.payload
+                resolved_rows.append(
+                    {
+                        "id": p["id"],
+                        "rule_id": p["rule_id"],
+                        "severity": p["severity"],
+                        "resource_name": p["resource_name"],
+                        "title": p["title"],
+                    }
+                )
+        return {
+            "previous_scan_id": prev,
+            "new": sorted(current - before),
+            "resolved": resolved_rows,
+            "persisting": sorted(current & before),
+        }
 
     # ---------------------------------------------------------------- findings
     def findings(

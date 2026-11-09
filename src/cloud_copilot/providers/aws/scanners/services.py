@@ -79,6 +79,7 @@ def scan_rds(ctx: AwsContext) -> dict[str, Any]:
                 "deletion_protection": i.get("DeletionProtection", False),
                 "auto_minor_upgrade": i.get("AutoMinorVersionUpgrade", False),
                 "iam_auth": i.get("IAMDatabaseAuthenticationEnabled", False),
+                "security_groups": [g["VpcSecurityGroupId"] for g in i.get("VpcSecurityGroups", [])],
             }
             for i in paginate(rds, "describe_db_instances", "DBInstances")
         ]

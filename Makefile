@@ -53,7 +53,7 @@ down: ## Stop the local platform
 
 tf-check: ## terraform fmt + validate for every stack
 	terraform fmt -check -recursive infra/terraform
-	for d in infra/terraform/aws infra/terraform/azure infra/terraform/modules/*; do (cd $$d && terraform init -backend=false -input=false >/dev/null && terraform validate) || exit 1; done
+	for d in infra/terraform/aws infra/terraform/azure infra/terraform/lab-aws infra/terraform/lab-azure infra/terraform/modules/*; do (cd $$d && terraform init -backend=false -input=false >/dev/null && terraform validate) || exit 1; done
 
 helm-check: ## helm lint + render
 	helm dependency build deploy/helm/cloud-copilot

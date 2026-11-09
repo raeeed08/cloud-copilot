@@ -94,7 +94,7 @@ jobs:
         run: terraform fmt -check -recursive infra/terraform
       - name: terraform validate
         run: |
-          for d in infra/terraform/aws infra/terraform/azure infra/terraform/modules/*; do
+          for d in infra/terraform/aws infra/terraform/azure infra/terraform/lab-aws infra/terraform/lab-azure infra/terraform/modules/*; do
             echo "::group::$d"; (cd "$d" && terraform init -backend=false -input=false && terraform validate); echo "::endgroup::"
           done
       - uses: terraform-linters/setup-tflint@v4

@@ -24,7 +24,7 @@ config:
 #    (recommended: External Secrets Operator syncing from AWS Secrets Manager / Azure Key Vault).
 secrets:
   create: false
-  existingSecret: cloud-copilot   # keys: API_KEYS, LLM_API_KEY, DATABASE_URL (when postgresql.enabled=false)
+  existingSecret: cloud-copilot   # keys: SECRET_KEY (Fernet), API_KEYS, LLM_API_KEY, DATABASE_URL (when postgresql.enabled=false)
   values: {}
 
 externalSecret:

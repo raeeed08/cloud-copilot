@@ -48,6 +48,37 @@ flowchart LR
 7. **AI briefing.** The top 30 findings (compact, pseudonymised) go to the LLM gateway. If no model is
    reachable, a deterministic report is generated instead.
 
+## From findings to strategy
+
+```mermaid
+flowchart LR
+  F[Findings] --> C[Correlation<br/>attack paths + MITRE ATT&CK]
+  R[(Raw scanner data<br/>instance→SG, DB→SG, users)] --> C
+  C --> P[Strategy engine]
+  F --> P
+  P --> N[Today: break paths, CRITICAL exposure]
+  P --> W[This week: identity & data]
+  P --> M[This month: detection & resilience]
+  P --> H[Hygiene] & S[Save money] & G[Guardrails: SCP / Azure Policy / CI]
+  N & W & M -->|fix + re-scan| D[Diff: resolved / new / persisting]
+```
+
+* **Correlation** (`core/correlation.py`) walks the raw normalised data per account, e.g. *instance with public
+  IP* → *its security groups expose SSH* → *IMDSv1* → *instance role*, and emits a scenario with steps, MITRE
+  technique IDs, impact and the single change that breaks the chain.
+* **Strategy** (`core/strategy.py`) groups findings per rule into actions, assigns a phase (chain-breakers and
+  CRITICAL first), estimates effort (S/M/L) and the exact posture-score gain, and picks guardrails for the rule
+  families that failed. Deterministic and explainable; the LLM only narrates it.
+* **Verification** (`Repository.diff`) compares a scan with the previous scan of the same targets.
+
+## Connected accounts
+
+Credentials are entered in the UI and stored **Fernet-encrypted** (`crypto.py`, key from `SECRET_KEY`); the API
+returns only masked hints. `providers/accounts.py` turns an account into a scan context: AWS `assume_role`
+(STS AssumeRole with External ID, recommended), `access_keys`, `profile` or ambient; Azure service principal or
+`DefaultAzureCredential`. *Verify* calls STS `GetCallerIdentity` / lists subscriptions and stores the identity
+and console sign-in URL. A scan can target any set of accounts; results are merged and re-scored.
+
 ## Copilot chat (RAG)
 
 ```mermaid

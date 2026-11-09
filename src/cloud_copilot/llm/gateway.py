@@ -15,6 +15,7 @@ from typing import Any
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from cloud_copilot.config import Settings
+from cloud_copilot.llm.providers import LLMConfig
 from cloud_copilot.log import get_logger
 from cloud_copilot.metrics import LLM_LATENCY, LLM_REQUESTS, LLM_TOKENS
 
@@ -41,17 +42,19 @@ def _transient(exc: BaseException) -> bool:
 
 
 class LLMGateway:
-    def __init__(self, settings: Settings, client: Any = None) -> None:
+    def __init__(self, settings: Settings, client: Any = None, config: LLMConfig | None = None) -> None:
         self.settings = settings
-        self.models = settings.llm_models
+        self.config = config or LLMConfig.from_settings(settings)
+        self.models = self.config.models
+        self.max_tokens = self.config.max_tokens
         self._client = client
-        if self._client is None and settings.effective_llm_key:
+        if self._client is None and self.config.usable:
             from openai import OpenAI
 
             self._client = OpenAI(
-                base_url=settings.llm_base_url,
-                api_key=settings.effective_llm_key,
-                timeout=settings.llm_timeout_seconds,
+                base_url=self.config.base_url,
+                api_key=self.config.api_key or "not-needed",
+                timeout=self.config.timeout,
                 max_retries=0,  # retries handled below, per model
                 default_headers={"X-Title": "Cloud Copilot"},
             )
@@ -64,18 +67,19 @@ class LLMGateway:
         self, messages: list[dict[str, str]], max_tokens: int | None = None, temperature: float = 0.2
     ) -> LLMReply:
         if not self.available:
-            raise LLMUnavailableError("no LLM API key configured")
+            raise LLMUnavailableError("no AI provider configured (Settings → AI provider)")
         last: Exception | None = None
         for model in self.models:
             try:
-                return self._call(model, messages, max_tokens or self.settings.llm_max_tokens, temperature)
+                return self._call(model, messages, max_tokens or self.max_tokens, temperature)
             except Exception as exc:
                 last = exc
                 LLM_REQUESTS.labels(model=model, outcome="error").inc()
                 log.warning("llm_model_failed", model=model, error=type(exc).__name__)
                 if getattr(exc, "status_code", None) in (401, 403):  # same key for every model: stop early
-                    raise LLMUnavailableError("LLM credentials rejected (check LLM_API_KEY)") from exc
-        raise LLMUnavailableError(f"all models failed: {type(last).__name__ if last else 'unknown'}")
+                    raise LLMUnavailableError("AI provider rejected the API key") from exc
+        detail = f"{type(last).__name__}: {str(last)[:240]}" if last else "unknown error"
+        raise LLMUnavailableError(f"all models failed ({detail})")
 
     @retry(
         retry=retry_if_exception(_transient),

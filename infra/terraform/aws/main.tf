@@ -176,7 +176,7 @@ resource "aws_iam_role_policy" "github_deploy" {
 # ---------------------------------------------------------------------------- secrets
 resource "aws_secretsmanager_secret" "app" {
   name                    = "cloud-copilot/${var.environment}"
-  description             = "API_KEYS, LLM_API_KEY, DATABASE_URL, synced into the cluster by External Secrets"
+  description             = "SECRET_KEY, API_KEYS, LLM_API_KEY, DATABASE_URL: synced into the cluster by External Secrets"
   recovery_window_in_days = 7
 }
 

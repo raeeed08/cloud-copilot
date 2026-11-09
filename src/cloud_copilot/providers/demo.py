@@ -170,6 +170,7 @@ AWS_DATA: dict[str, dict[str, Any]] = {
                 "public_ip": "198.51.100.10",
                 "imdsv2_required": False,
                 "instance_profile": True,
+                "security_groups": ["sg-0a11bastion"],
                 "launch_days": 300,
             },
             {
@@ -181,6 +182,7 @@ AWS_DATA: dict[str, dict[str, Any]] = {
                 "public_ip": None,
                 "imdsv2_required": True,
                 "instance_profile": True,
+                "security_groups": ["sg-0e55web"],
                 "launch_days": 20,
             },
             {
@@ -192,6 +194,7 @@ AWS_DATA: dict[str, dict[str, Any]] = {
                 "public_ip": "198.51.100.22",
                 "imdsv2_required": False,
                 "instance_profile": False,
+                "security_groups": ["sg-0d44debug"],
                 "launch_days": 1400,
             },
         ],
@@ -278,6 +281,7 @@ AWS_DATA: dict[str, dict[str, Any]] = {
                 "deletion_protection": False,
                 "auto_minor_upgrade": False,
                 "iam_auth": False,
+                "security_groups": ["sg-0c33db"],
             },
             {
                 "id": "orders-aurora",
@@ -291,6 +295,7 @@ AWS_DATA: dict[str, dict[str, Any]] = {
                 "deletion_protection": True,
                 "auto_minor_upgrade": True,
                 "iam_auth": True,
+                "security_groups": ["sg-0e55web"],
             },
         ],
         "snapshots": [{"id": "reporting-pg-manual-2023", "region": EU, "public": False, "encrypted": False}],

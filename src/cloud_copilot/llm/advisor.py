@@ -13,6 +13,7 @@ Design choices
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -60,11 +61,28 @@ class ChatAnswer:
     latency_ms: int = 0
 
 
+SMALL_TALK = re.compile(
+    r"^\s*(hi|hello|hey|yo|salut|bonjour|salam|good (morning|evening|afternoon)|thanks?( you)?|merci|ok(ay)?|"
+    r"cool|nice|great)\b[\s!.?]*$",
+    re.I,
+)
+HELP = re.compile(r"(what can you do|help me|how (do|can) (i|you) use|who are you|what are you)", re.I)
+CAPABILITIES = (
+    "I can help you with:\n"
+    "- **Triage**: *what should I fix first?*, *explain the attack paths*\n"
+    "- **Remediation**: *how do I fix EC2-001 on bastion-ssh?* (steps, CLI, Terraform)\n"
+    "- **Incidents**: *what do I do if an access key leaked?*\n"
+    "- **Compliance**: *which CIS controls fail and why?*\n"
+    "- **Cost**: *where can I save money?*"
+)
+
+
 class Copilot:
     def __init__(self, settings: Settings, retriever: Retriever, gateway: LLMGateway | None = None) -> None:
         self.settings = settings
         self.retriever = retriever
         self.gateway = gateway or LLMGateway(settings)
+        self.language = settings.llm_language
 
     # ------------------------------------------------------------------ relevance
     @staticmethod
@@ -90,6 +108,18 @@ class Copilot:
             picked += [f for f in sorted(active, key=lambda f: f.severity.rank) if f.id not in seen][: k - len(picked)]
         return picked
 
+    @staticmethod
+    def _status_line(scan: dict[str, Any] | None) -> str:
+        if not scan:
+            return "No scan has run yet: connect an account (or use the demo estate) and click **Run scan**."
+        s = scan.get("summary", {})
+        sev = s.get("by_severity", {})
+        paths = scan.get("scenarios") or []
+        return (
+            f"Latest scan: posture score **{scan.get('score')}/100**, {s.get('total', 0)} open findings "
+            f"({sev.get('CRITICAL', 0)} critical, {sev.get('HIGH', 0)} high) and **{len(paths)} attack path(s)**."
+        )
+
     # ------------------------------------------------------------------ chat
     def chat(
         self,
@@ -99,20 +129,39 @@ class Copilot:
         scan: dict[str, Any] | None = None,
     ) -> ChatAnswer:
         question = question.strip()[:2000]
-        knowledge = self.retriever.search(question, k=self.settings.rag_top_k)
-        relevant = self.relevant_findings(question, findings)
+        small_talk = bool(SMALL_TALK.match(question))
+        wants_help = bool(HELP.search(question))
+        if (small_talk or wants_help) and not self.gateway.available:
+            hello = (
+                "Hi! I'm Cloud Copilot. "
+                if small_talk and not question.lower().startswith(("thank", "merci"))
+                else ("You're welcome! " if small_talk else "")
+            )
+            return ChatAnswer(answer=f"{hello}{self._status_line(scan)}\n\n{CAPABILITIES}", mode="offline")
+
+        knowledge = [] if small_talk else self.retriever.search(question, k=self.settings.rag_top_k)
+        relevant = [] if small_talk else self.relevant_findings(question, findings)
         citations = [{"id": h.chunk.id, "title": h.chunk.title, "source": h.chunk.source} for h in knowledge]
 
         red = Redactor(self.settings.llm_redact)
         kb = "\n\n".join(f"[{i + 1}] {h.chunk.title}\n{h.chunk.text}" for i, h in enumerate(knowledge))
         data = json.dumps([_compact(f) for f in relevant], ensure_ascii=False)
+        paths = [
+            {k: p.get(k) for k in ("title", "severity", "summary", "break_first")}
+            for p in (scan or {}).get("scenarios", [])[:6]
+        ]
         scan_ctx = json.dumps(
-            {k: scan.get(k) for k in ("score", "summary", "accounts")} if scan else {}, ensure_ascii=False, default=str
+            {**({k: scan.get(k) for k in ("score", "summary", "accounts")} if scan else {}), "attack_paths": paths},
+            ensure_ascii=False,
+            default=str,
         )
         system = (
-            "You are Cloud Copilot, a senior cloud security and FinOps engineer. Answer in "
-            f"{self.settings.llm_language}, concisely, in Markdown. Give concrete steps (CLI/Terraform when "
-            "useful). Cite knowledge passages as [n] and findings by rule ID. " + GUARDRAILS
+            "You are Cloud Copilot, a senior cloud security and FinOps engineer who helps the user secure their "
+            f"AWS/Azure accounts. Answer in {self.language}, concisely, in Markdown. If the user just greets you "
+            "or chats, answer briefly and naturally, summarise the posture in one sentence and suggest a next "
+            "step; do not dump findings. For real questions give concrete, prioritised steps (CLI/Terraform when "
+            "useful), prefer breaking attack paths first, cite knowledge passages as [n] and findings by rule ID. "
+            + GUARDRAILS
         )
         messages: list[dict[str, str]] = [{"role": "system", "content": system}]
         for turn in (history or [])[-6:]:
@@ -140,15 +189,20 @@ class Copilot:
         except LLMUnavailableError as exc:
             log.info("chat_offline_fallback", reason=str(exc))
             return ChatAnswer(
-                answer=self._offline_answer(relevant, knowledge),
+                answer=self._offline_answer(relevant, knowledge, str(exc)),
                 mode="offline",
                 citations=citations,
                 findings=[f.id for f in relevant],
             )
 
     @staticmethod
-    def _offline_answer(findings: list[Finding], knowledge: list[Any]) -> str:
-        lines = ["_The language model is unavailable. Here is what the rule engine and knowledge base say._", ""]
+    def _offline_answer(findings: list[Finding], knowledge: list[Any], reason: str = "") -> str:
+        why = f" ({reason})" if reason else ""
+        lines = [
+            f"_AI provider unavailable{why}. Configure one in **Settings → AI provider**. Meanwhile, "
+            "here is what the rule engine and knowledge base say._",
+            "",
+        ]
         if findings:
             lines.append("**Most relevant findings**")
             for f in findings[:6]:
@@ -161,26 +215,59 @@ class Copilot:
                 lines.append(f"[{i + 1}] *{h.chunk.title}*: {excerpt}")
         return "\n".join(lines)
 
-    # ------------------------------------------------------------------ executive summary
-    def explain_scan(self, findings: list[Finding], summary: dict[str, Any], costs: list[dict[str, Any]]) -> str:
+    # ------------------------------------------------------------------ strategy briefing
+    def explain_scan(
+        self,
+        findings: list[Finding],
+        summary: dict[str, Any],
+        costs: list[dict[str, Any]],
+        scenarios: list[dict[str, Any]] | None = None,
+        plan: dict[str, Any] | None = None,
+    ) -> str:
         active = sorted((f for f in findings if not f.suppressed), key=lambda f: f.severity.rank)
         if not active:
             return "No issues detected by the current rule set. Keep scanning regularly."
+        scenarios = scenarios or []
+        phases = [
+            {
+                "phase": p["title"],
+                "when": p["horizon"],
+                "score_gain": p["score_gain"],
+                "actions": [
+                    {
+                        "rule": a["rule_id"],
+                        "title": a["title"],
+                        "resources": len(a["resources"]),
+                        "effort": a["effort"],
+                        "breaks": a["breaks"],
+                    }
+                    for a in p["actions"][:6]
+                ],
+            }
+            for p in (plan or {}).get("phases", [])
+        ]
         red = Redactor(self.settings.llm_redact)
         payload = json.dumps(
             {
                 "summary": summary,
+                "score": (plan or {}).get("current_score"),
+                "attack_paths": [
+                    {k: s.get(k) for k in ("title", "severity", "summary", "impact", "break_first")}
+                    for s in scenarios[:8]
+                ],
+                "plan": phases,
                 "costs": [{k: c.get(k) for k in ("provider", "total", "forecast_month_end")} for c in costs],
-                "top_findings": [_compact(f) for f in active[:30]],
+                "top_findings": [_compact(f) for f in active[:20]],
             },
             ensure_ascii=False,
         )
         system = (
-            "You are Cloud Copilot. Write an executive briefing in "
-            f"{self.settings.llm_language} Markdown with sections: '### Risk overview' (2-3 sentences), "
-            "'### Fix first' (numbered list of the 5 most urgent items: what, why it matters, how to fix), "
-            "'### Quick wins' (low-effort fixes), '### Cost' (savings opportunities, total). Use rule IDs. "
-            "Be specific and brief. " + GUARDRAILS
+            "You are Cloud Copilot, acting as the user's cloud security lead. Write a remediation STRATEGY in "
+            f"{self.language} Markdown with these sections: '### Situation' (2-3 sentences: overall risk, the "
+            "score, what an attacker would do first), '### Attack paths to break' (each path: one line why it "
+            "is dangerous + the single change that breaks it), '### Strategy' (the phased plan: Today / This week /"
+            " This month / Prevent recurrence, with rule IDs and why that order), '### Cost' (savings). Base every "
+            "claim on the data. Be specific and brief. " + GUARDRAILS
         )
         try:
             reply = self.gateway.complete(
@@ -188,25 +275,42 @@ class Copilot:
                     {"role": "system", "content": system},
                     {"role": "user", "content": red.redact(f"<scan>{payload}</scan>")},
                 ],
-                max_tokens=self.settings.llm_max_tokens,
+                max_tokens=max(self.settings.llm_max_tokens, 1500),
             )
             return red.restore(reply.text)
         except LLMUnavailableError:
-            return self.fallback_summary(active, summary)
+            return self.fallback_summary(active, summary, scenarios, plan)
 
     @staticmethod
-    def fallback_summary(active: list[Finding], summary: dict[str, Any]) -> str:
+    def fallback_summary(
+        active: list[Finding],
+        summary: dict[str, Any],
+        scenarios: list[dict[str, Any]] | None = None,
+        plan: dict[str, Any] | None = None,
+    ) -> str:
         sev = summary.get("by_severity", {})
+        scenarios = scenarios or []
         lines = [
-            "### Risk overview",
-            f"{summary.get('total', len(active))} open findings: {sev.get('CRITICAL', 0)} critical, "
-            f"{sev.get('HIGH', 0)} high, {sev.get('MEDIUM', 0)} medium. _(AI summary unavailable; this is a "
-            "deterministic report.)_",
-            "",
-            "### Fix first",
+            "### Situation",
+            f"{summary.get('total', len(active))} open findings ({sev.get('CRITICAL', 0)} critical, "
+            f"{sev.get('HIGH', 0)} high) forming **{len(scenarios)} attack path(s)**. "
+            "_(Deterministic strategy: connect an AI provider for a narrated briefing.)_",
         ]
-        for i, f in enumerate(active[:5], 1):
-            lines.append(f"{i}. **{f.rule_id}** {f.resource_name}: {f.message} _Fix:_ {f.remediation}")
+        if scenarios:
+            lines += ["", "### Attack paths to break"]
+            for s in scenarios[:5]:
+                lines.append(f"- **{s['severity']}** {s['title']}: {s['break_first']}")
+        phases = (plan or {}).get("phases", [])
+        if phases:
+            lines += ["", "### Strategy"]
+            for p in phases:
+                top = ", ".join(f"`{a['rule_id']}`" for a in p["actions"][:5])
+                gain = f" (+{p['score_gain']} pts)" if p["score_gain"] else ""
+                lines.append(f"- **{p['horizon']}: {p['title']}**{gain}: {top}")
+        else:
+            lines += ["", "### Fix first"]
+            for i, f in enumerate(active[:5], 1):
+                lines.append(f"{i}. **{f.rule_id}** {f.resource_name}: {f.message} _Fix:_ {f.remediation}")
         savings = summary.get("estimated_monthly_savings", 0)
         if savings:
             lines += ["", "### Cost", f"Estimated savings: **${savings:,.2f}/month** from cost findings."]

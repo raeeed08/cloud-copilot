@@ -42,6 +42,11 @@ class Settings(BaseSettings):
 
     # --- persistence -------------------------------------------------------
     database_url: str = "sqlite:///./data/cloud_copilot.db"
+    secret_key: SecretStr | None = Field(
+        default=None,
+        description="Fernet key encrypting stored credentials. Generated into data/secret.key if unset (dev).",
+    )
+    secret_key_file: str = "./data/secret.key"  # noqa: S105 - a path, not a secret
 
     # --- API ---------------------------------------------------------------
     api_keys: Annotated[list[SecretStr], NoDecode] = Field(

@@ -15,6 +15,7 @@ x-app: &app
   depends_on:
     postgres: { condition: service_healthy }
   restart: unless-stopped
+  volumes: ["app-data:/app/data"]   # shared: holds the credential-encryption key in dev
   read_only: true
   tmpfs: [/tmp]
   security_opt: ["no-new-privileges:true"]
@@ -24,7 +25,7 @@ services:
   api:
     <<: *app
     ports: ["8000:8000"]
-    volumes: ["${HOME}/.aws:/app/.aws:ro", "app-data:/app/data"]
+    volumes: ["${HOME}/.aws:/app/.aws:ro", "app-data:/app/data"]   # ~/.aws enables the "Local AWS profile" method
     environment:
       <<: *app-env
       AWS_CONFIG_FILE: /app/.aws/config

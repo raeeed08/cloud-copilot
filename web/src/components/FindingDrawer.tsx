@@ -114,7 +114,12 @@ export function FindingDrawer({ finding, onClose, onChanged, onAsk }: {
         )}
 
         <div className="drawer-actions">
-          <button className="btn" onClick={() => onAsk(`Explain ${finding.rule_id} on ${finding.resource_name} and give me a step-by-step fix.`)}>
+          {finding.console_url && (
+            <a className="btn" href={finding.console_url} target="_blank" rel="noreferrer">
+              Open in {finding.provider === "aws" ? "AWS console" : "Azure portal"} ↗
+            </a>
+          )}
+          <button className="btn btn-ghost" onClick={() => onAsk(`Explain ${finding.rule_id} on ${finding.resource_name} and give me a step-by-step fix.`)}>
             Ask Copilot
           </button>
           {!finding.suppressed && (

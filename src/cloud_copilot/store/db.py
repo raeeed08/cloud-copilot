@@ -40,6 +40,9 @@ class ScanRow(Base):
     summary: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     explanation: Mapped[str | None] = mapped_column(Text)
     error: Mapped[str | None] = mapped_column(Text)
+    targets: Mapped[list[str]] = mapped_column(JSON, default=list)
+    evaluated_rules: Mapped[list[str]] = mapped_column(JSON, default=list)
+    scenarios: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
 
     findings: Mapped[list[FindingRow]] = relationship(back_populates="scan", cascade="all, delete-orphan")
 
@@ -71,6 +74,36 @@ class SuppressionRow(Base):
     created_by: Mapped[str] = mapped_column(String(128), default="api")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class CloudAccountRow(Base):
+    """A connected cloud account. Secrets are Fernet-encrypted, never returned by the API."""
+
+    __tablename__ = "cloud_accounts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(128))
+    provider: Mapped[str] = mapped_column(String(16), index=True)
+    auth_method: Mapped[str] = mapped_column(String(32))
+    config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    secret: Mapped[str | None] = mapped_column(Text)
+    enabled: Mapped[bool] = mapped_column(default=True)
+    status: Mapped[str] = mapped_column(String(16), default="unverified")
+    status_detail: Mapped[str | None] = mapped_column(Text)
+    identity: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AppSettingRow(Base):
+    """Runtime settings changed from the UI (e.g. LLM provider). Secret part is encrypted."""
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    secret: Mapped[str | None] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
 
 class Database:

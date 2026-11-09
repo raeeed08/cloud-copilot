@@ -26,6 +26,7 @@ from cloud_copilot.models import (
     Severity,
 )
 from cloud_copilot.providers.aws.context import NotConfiguredError
+from cloud_copilot.providers.console import console_url
 
 log = get_logger(__name__)
 ProgressFn = Callable[[str], None]
@@ -61,6 +62,8 @@ def evaluate(rule: Rule, data: dict[str, Any], account: str | None) -> list[Find
                 details=hit.details,
             )
         )
+    for f in out:
+        f.console_url = console_url(f)
     return out
 
 
@@ -157,6 +160,7 @@ class ScanEngine:
                 account = self._account_label(provider, ctx)
                 if account:
                     result.accounts[provider.value] = account
+                    sr.account = account
             except NotConfiguredError as exc:
                 unavailable.add(provider)
                 sr.status, sr.error = ServiceStatus.SKIPPED, str(exc)
@@ -175,6 +179,7 @@ class ScanEngine:
                 sr.status = ServiceStatus.PARTIAL
             sr.resources = _count_resources(data)
             result.inventory[f"{provider.value}:{service}"] = sr.resources
+            result.raw.setdefault(f"{provider.value}:{account or 'default'}", {})[service] = data
 
             for r in rules_for(provider, service):
                 try:
@@ -196,6 +201,7 @@ class ScanEngine:
 
         result.findings.sort(key=lambda f: (f.suppressed, f.severity.rank, f.provider, f.rule_id))
         result.score, result.controls_passed, result.controls_failed = score(result.findings, evaluated)
+        result.evaluated_rules = sorted(evaluated)
         result.finished_at = datetime.now(UTC)
         statuses = {s.status for s in result.services}
         if statuses and statuses <= {ServiceStatus.SKIPPED}:
