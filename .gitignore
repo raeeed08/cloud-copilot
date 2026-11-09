@@ -1,13 +1,42 @@
-# Secrets
+# secrets
 .env
+.env.*
+!.env.example
+*.tfvars
+!*.tfvars.example
 
-# Environnements virtuels
-venv/
-.venv/
-
-# Caches Python
+# python
 __pycache__/
-*.pyc
+*.py[cod]
+.venv/
+venv/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+dist/
 
-# Données générées
-data/*.json
+# runtime data
+data/
+
+# frontend
+web/node_modules/
+web/dist/
+src/cloud_copilot/web/
+
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl.bak
+crash.log
+
+# misc
+.DS_Store
+*.log
+*.tsbuildinfo
+
+# helm
+deploy/helm/*/charts/

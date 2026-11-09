@@ -1,0 +1,19 @@
+# Public portfolio demo: synthetic estate, no cloud credentials, single replica.
+replicaCount: 1
+autoscaling: { enabled: false }
+podDisruptionBudget: { enabled: false }
+config:
+  ENVIRONMENT: staging
+  DEMO_MODE: "true"
+  SCAN_ON_STARTUP: "true"
+secrets:
+  create: true
+  existingSecret: ""
+  values: {}
+scanCronJob:
+  enabled: true
+  schedule: "*/30 * * * *"
+mcp: { enabled: true }
+# API, CronJob and MCP pods must share one database
+postgresql:
+  enabled: true

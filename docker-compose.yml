@@ -1,0 +1,86 @@
+# Local platform: API + dashboard, PostgreSQL, MCP endpoint, Prometheus, Grafana.
+#   docker compose up -d --build                      -> http://localhost:8000 (app), :3000 (Grafana), :9090
+#   docker compose --profile local-llm up -d          -> + Ollama (LLM + embeddings, no API key needed)
+#   docker compose --profile tracing up -d            -> + Jaeger (OpenTelemetry traces, :16686)
+name: cloud-copilot
+
+x-app: &app
+  build: { context: ., args: { VERSION: "2.0.0-local" } }
+  image: cloud-copilot:local
+  env_file: [{ path: .env, required: false }]
+  environment: &app-env
+    DATABASE_URL: postgresql+psycopg://copilot:copilot@postgres:5432/copilot
+    DEMO_MODE: ${DEMO_MODE:-true}
+    LOG_JSON: "true"
+  depends_on:
+    postgres: { condition: service_healthy }
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+
+services:
+  api:
+    <<: *app
+    ports: ["8000:8000"]
+    volumes: ["${HOME}/.aws:/app/.aws:ro", "app-data:/app/data"]
+    environment:
+      <<: *app-env
+      AWS_CONFIG_FILE: /app/.aws/config
+      AWS_SHARED_CREDENTIALS_FILE: /app/.aws/credentials
+
+  mcp:
+    <<: *app
+    command: ["mcp", "--transport", "http", "--host", "0.0.0.0", "--port", "8765"]
+    ports: ["8765:8765"]
+    healthcheck: { disable: true }
+
+  postgres:
+    image: postgres:17-alpine
+    environment: { POSTGRES_USER: copilot, POSTGRES_PASSWORD: copilot, POSTGRES_DB: copilot }
+    volumes: ["pg-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U copilot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    volumes:
+      - ./deploy/compose/prometheus:/etc/prometheus:ro
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--web.enable-lifecycle"]
+    ports: ["9090:9090"]
+    depends_on: [api]
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me}
+    volumes:
+      - ./deploy/compose/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/compose/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]
+    depends_on: [prometheus]
+
+  ollama:
+    image: ollama/ollama:0.5.4
+    profiles: [local-llm]
+    volumes: ["ollama:/root/.ollama"]
+    ports: ["11434:11434"]
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 3 && ollama pull llama3.2 && ollama pull nomic-embed-text && wait"]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.64.0
+    profiles: [tracing]
+    environment: { COLLECTOR_OTLP_ENABLED: "true" }
+    ports: ["16686:16686", "4318:4318"]
+
+volumes:
+  pg-data:
+  app-data:
+  ollama:

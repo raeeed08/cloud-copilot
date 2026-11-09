@@ -1,0 +1,178 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.5.11"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  python:
+    name: Python · lint, types, tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with: { version: "${{ env.UV_VERSION }}", enable-cache: true }
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync --frozen
+      - name: Ruff
+        run: uv run ruff check src tests && uv run ruff format --check src tests
+      - name: Mypy
+        run: uv run mypy
+      - name: Pytest (unit, moto, API, MCP, RAG eval)
+        run: uv run pytest --cov --cov-report=xml --cov-report=term --junitxml=junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: python-test-results, path: "coverage.xml\njunit.xml" }
+
+  web:
+    name: Frontend · lint, types, build
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  security:
+    name: Security · SAST, deps, secrets
+    runs-on: ubuntu-latest
+    permissions: { contents: read, security-events: write }
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: astral-sh/setup-uv@v5
+        with: { version: "${{ env.UV_VERSION }}" }
+      - run: uv python install ${{ env.PYTHON_VERSION }} && uv sync --frozen
+      - name: Bandit (Python SAST)
+        run: uv run bandit -c pyproject.toml -r src -q
+      - name: pip-audit (known CVEs in Python deps)
+        run: |
+          uv export --frozen --no-dev --all-extras --no-hashes --no-emit-project > /tmp/req.txt
+          uv run pip-audit -r /tmp/req.txt --strict --progress-spinner off
+      - name: npm audit
+        run: cd web && npm ci --ignore-scripts && npm audit --omit=dev --audit-level=high
+      - name: Gitleaks (secrets in history)
+        uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: fs
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          format: sarif
+          output: trivy-fs.sarif
+          skip-dirs: web/node_modules
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: trivy-fs.sarif, category: trivy-fs }
+
+  iac:
+    name: IaC · Terraform, Helm, policy
+    runs-on: ubuntu-latest
+    permissions: { contents: read, security-events: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: "1.10.3" }
+      - name: terraform fmt
+        run: terraform fmt -check -recursive infra/terraform
+      - name: terraform validate
+        run: |
+          for d in infra/terraform/aws infra/terraform/azure infra/terraform/modules/*; do
+            echo "::group::$d"; (cd "$d" && terraform init -backend=false -input=false && terraform validate); echo "::endgroup::"
+          done
+      - uses: terraform-linters/setup-tflint@v4
+      - name: tflint
+        run: |
+          tflint --init
+          for d in infra/terraform/aws infra/terraform/azure; do tflint --chdir="$d" --minimum-failure-severity=error; done
+      - uses: azure/setup-helm@v4
+        with: { version: v3.16.4 }
+      - name: helm lint + kubeconform
+        run: |
+          helm dependency build deploy/helm/cloud-copilot
+          helm lint deploy/helm/cloud-copilot --strict
+          helm lint deploy/helm/cloud-copilot -f deploy/helm/cloud-copilot/values-demo.yaml
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
+          for v in values.yaml values-demo.yaml ../../environments/prod.yaml; do
+            helm template t deploy/helm/cloud-copilot -f deploy/helm/cloud-copilot/$v \
+              | ./kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.31.0
+          done
+      - name: Checkov (Terraform, Helm, Dockerfile, Actions)
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          framework: terraform,helm,dockerfile,github_actions
+          output_format: cli,sarif
+          output_file_path: console,checkov.sarif
+          soft_fail: true   # surfaced in code scanning; hard gate is Trivy + tflint
+          skip_path: web/node_modules
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: checkov.sarif, category: checkov }
+
+  container:
+    name: Container · build, scan, e2e on kind
+    runs-on: ubuntu-latest
+    needs: [python, web]
+    permissions: { contents: read, security-events: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: cloud-copilot:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=ci-${{ github.sha }}
+            REVISION=${{ github.sha }}
+      - name: Trivy image scan (gate on fixable HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          image-ref: cloud-copilot:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with: { cluster_name: ci, version: v0.26.0 }
+      - name: Deploy chart (demo profile) and run helm test
+        run: |
+          kind load docker-image cloud-copilot:ci --name ci
+          helm dependency build deploy/helm/cloud-copilot
+          helm upgrade --install cc deploy/helm/cloud-copilot -n cc --create-namespace \
+            -f deploy/helm/cloud-copilot/values-demo.yaml \
+            --set image.repository=cloud-copilot --set image.tag=ci --set image.pullPolicy=Never \
+            --set postgresql.enabled=false --set networkPolicy.enabled=false \
+            --wait --timeout 5m
+          helm test cc -n cc --logs
+      - name: End-to-end API checks
+        run: |
+          kubectl -n cc port-forward svc/cc-cloud-copilot 8000:80 & sleep 5
+          for i in $(seq 1 30); do curl -sf localhost:8000/api/v1/scans/latest > scan.json && break; sleep 2; done
+          python3 -c "import json; s=json.load(open('scan.json')); assert s['status']=='succeeded' and s['summary']['total']>50, s; print('score', s['score'])"
+          curl -sf localhost:8000/api/v1/compliance | python3 -c "import json,sys; assert json.load(sys.stdin)['frameworks']"
+          curl -sf -X POST localhost:8000/api/v1/chat -H 'content-type: application/json' -d '{"message":"public bucket"}' | grep -q citations
+      - name: Debug on failure
+        if: failure()
+        run: kubectl -n cc get all,events && kubectl -n cc logs -l app.kubernetes.io/name=cloud-copilot --tail=200

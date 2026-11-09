@@ -1,0 +1,13 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: cloud-copilot
+  namespace: argocd
+spec:
+  description: Cloud Copilot environments
+  sourceRepos: [https://github.com/raeeed08/cloud-copilot.git, registry-1.docker.io/bitnamicharts]
+  destinations:
+    - { namespace: cloud-copilot, server: https://kubernetes.default.svc }
+    - { namespace: cloud-copilot-staging, server: https://kubernetes.default.svc }
+  clusterResourceWhitelist: [{ group: "", kind: Namespace }]
+  namespaceResourceBlacklist: [{ group: "", kind: ResourceQuota }, { group: "", kind: LimitRange }]

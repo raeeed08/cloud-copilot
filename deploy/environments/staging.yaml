@@ -1,0 +1,15 @@
+# Managed by the release workflow (image.digest) and by humans (everything else).
+image:
+  digest: ""
+config:
+  ENVIRONMENT: staging
+  DEMO_MODE: "true"
+  SCAN_ON_STARTUP: "true"
+replicaCount: 1
+autoscaling: { enabled: false }
+podDisruptionBudget: { enabled: false }
+postgresql: { enabled: true }
+mcp: { enabled: true }
+externalSecret:
+  enabled: true
+  remoteKey: cloud-copilot/staging

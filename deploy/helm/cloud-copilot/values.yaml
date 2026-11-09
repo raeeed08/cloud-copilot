@@ -1,0 +1,124 @@
+# -- Container image (built and signed by the release workflow)
+image:
+  repository: ghcr.io/raeeed08/cloud-copilot
+  tag: ""            # defaults to .Chart.AppVersion
+  digest: ""         # prefer pinning by digest in production (GitOps updates it)
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+replicaCount: 2
+
+# -- Non-secret configuration (rendered into a ConfigMap)
+config:
+  ENVIRONMENT: prod
+  DEMO_MODE: "false"
+  LOG_JSON: "true"
+  LOG_LEVEL: INFO
+  PROVIDERS: aws,azure
+  AWS_REGIONS: ""
+  LLM_BASE_URL: https://openrouter.ai/api/v1
+  LLM_MODELS: openrouter/free,openai/gpt-oss-20b:free
+  LLM_REDACT: "true"
+
+# -- Secrets: either let the chart create them, or reference an existing Secret
+#    (recommended: External Secrets Operator syncing from AWS Secrets Manager / Azure Key Vault).
+secrets:
+  create: false
+  existingSecret: cloud-copilot   # keys: API_KEYS, LLM_API_KEY, DATABASE_URL (when postgresql.enabled=false)
+  values: {}
+
+externalSecret:
+  enabled: false
+  secretStoreRef: { name: cluster-secret-store, kind: ClusterSecretStore }
+  remoteKey: cloud-copilot/prod
+  refreshInterval: 1h
+
+serviceAccount:
+  create: true
+  name: ""
+  # -- IRSA (EKS) or Workload Identity (AKS) so pods get read-only cloud credentials without keys
+  annotations: {}
+  #  eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/cloud-copilot-scanner
+  #  azure.workload.identity/client-id: 00000000-0000-0000-0000-000000000000
+podLabels: {}
+  # azure.workload.identity/use: "true"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile: { type: RuntimeDefault }
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: { drop: [ALL] }
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    nginx.ingress.kubernetes.io/limit-rps: "20"
+  hosts:
+    - host: copilot.example.com
+      paths: [{ path: /, pathType: Prefix }]
+  tls:
+    - secretName: cloud-copilot-tls
+      hosts: [copilot.example.com]
+
+resources:
+  requests: { cpu: 100m, memory: 256Mi }
+  limits: { memory: 768Mi }
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# -- Scheduled scans run as a CronJob (isolated from the API pods, own resource budget)
+scanCronJob:
+  enabled: true
+  schedule: "0 */6 * * *"
+  failOn: ""          # e.g. CRITICAL -> job fails, alerting on KubeJobFailed
+  resources:
+    requests: { cpu: 200m, memory: 384Mi }
+    limits: { memory: 1Gi }
+
+# -- MCP server (streamable HTTP) for remote AI agents
+mcp:
+  enabled: false
+  port: 8765
+
+networkPolicy:
+  enabled: true
+  ingressNamespaces: [ingress-nginx, monitoring]
+
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  labels: { release: kube-prometheus-stack }
+
+prometheusRule:
+  enabled: false
+
+topologySpreadConstraints: true
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# -- Bundled PostgreSQL (dev/staging). Use RDS / Azure Database for PostgreSQL in production.
+postgresql:
+  enabled: false
+  auth: { username: copilot, database: copilot, existingSecret: "" }
+  primary:
+    persistence: { size: 8Gi }
