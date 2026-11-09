@@ -1,0 +1,38 @@
+# Continuous cloud posture: scan the real AWS account nightly with a read-only role assumed through
+# GitHub OIDC (no stored keys). Fails the run on CRITICAL findings and publishes the report.
+name: Nightly posture scan
+
+on:
+  schedule: [{ cron: "0 3 * * *" }]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    if: vars.AWS_SCANNER_ROLE_ARN != ''
+    environment: posture
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_SCANNER_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'eu-west-1' }}
+      - uses: astral-sh/setup-uv@v5
+      - run: uv python install 3.12 && uv sync --frozen --no-dev
+      - name: Scan
+        env:
+          PROVIDERS: aws
+          DATABASE_URL: sqlite:///./data/ci.db
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          set -o pipefail
+          uv run cloud-copilot scan --fail-on CRITICAL | tee report.txt
+      - name: Job summary
+        if: always()
+        run: |
+          echo '## Cloud posture' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"; head -c 60000 report.txt >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,118 @@
+[project]
+name = "cloud-copilot"
+version = "2.0.0"
+description = "Multi-cloud security & cost posture copilot: rule engine, LLM advisor with RAG, MCP server."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Raed Aroua" }]
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "sqlalchemy>=2.0.36",
+    "alembic>=1.14",
+    "boto3>=1.35",
+    "openai>=1.55",
+    "httpx>=0.27",
+    "tenacity>=9.0",
+    "structlog>=24.4",
+    "prometheus-client>=0.21",
+    "typer>=0.13",
+    "mcp>=1.2",
+]
+
+[project.optional-dependencies]
+azure = [
+    "azure-identity>=1.19",
+    "azure-mgmt-storage>=21.2",
+    "azure-mgmt-network>=28.0",
+    "azure-mgmt-monitor>=6.0",
+    "azure-mgmt-keyvault>=10.3",
+    "azure-mgmt-sql>=3.0",
+    "azure-mgmt-compute>=33.0",
+    "azure-mgmt-web>=7.3",
+    "azure-mgmt-security>=7.0",
+    "azure-mgmt-containerservice>=33.0",
+    "azure-mgmt-containerregistry>=10.3",
+    "azure-mgmt-costmanagement>=4.0",
+]
+postgres = ["psycopg[binary]>=3.2"]
+otel = [
+    "opentelemetry-sdk>=1.28",
+    "opentelemetry-exporter-otlp-proto-http>=1.28",
+    "opentelemetry-instrumentation-fastapi>=0.49b0",
+]
+
+[project.scripts]
+cloud-copilot = "cloud_copilot.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "moto[s3,ec2,iam,rds,cloudtrail,kms,sts,dynamodb,sqs,logs]>=5.0",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "bandit>=1.8",
+    "pip-audit>=2.7",
+    "boto3-stubs[essential]>=1.35",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cloud_copilot"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"knowledge" = "cloud_copilot/_knowledge"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF", "C4", "PT"]
+ignore = ["S101", "S311", "RUF012", "B008", "PT018", "RUF001"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S108", "E501"]
+"src/cloud_copilot/store/migrations/**" = ["E501", "I001", "UP"]
+# "0.0.0.0" here is data being inspected, not a socket bind
+"src/cloud_copilot/llm/redaction.py" = ["S104"]
+"src/cloud_copilot/providers/azure/*.py" = ["S104"]
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["cloud_copilot"]
+mypy_path = "src"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = ["eval: offline retrieval-quality evaluation"]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["cloud_copilot"]
+omit = ["src/cloud_copilot/providers/azure/scanners.py", "src/cloud_copilot/providers/azure/cost.py", "src/cloud_copilot/store/migrations/*"]
+
+[tool.coverage.report]
+fail_under = 75
+show_missing = true
+skip_covered = true
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+
+[[tool.mypy.overrides]]
+# loop-bound lambdas with default args (lambda n=name: ...) are a known mypy inference gap
+module = "cloud_copilot.providers.aws.scanners.*"
+disable_error_code = ["misc"]

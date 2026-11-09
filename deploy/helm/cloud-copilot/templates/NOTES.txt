@@ -1,0 +1,12 @@
+Cloud Copilot {{ .Chart.AppVersion }} deployed as "{{ .Release.Name }}".
+
+{{- if .Values.ingress.enabled }}
+  Dashboard: https://{{ (index .Values.ingress.hosts 0).host }}
+{{- else }}
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "cc.fullname" . }} 8000:{{ .Values.service.port }}
+  open http://localhost:8000   (API docs: /api/docs)
+{{- end }}
+{{- if .Values.scanCronJob.enabled }}
+  Scheduled scans: "{{ .Values.scanCronJob.schedule }}". Trigger one now:
+  kubectl -n {{ .Release.Namespace }} create job --from=cronjob/{{ include "cc.fullname" . }}-scan manual-scan
+{{- end }}

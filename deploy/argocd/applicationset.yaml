@@ -1,0 +1,39 @@
+# One Application per environment. The release workflow bumps image.digest in
+# deploy/environments/<env>.yaml; Argo CD syncs it (pull-based GitOps, no cluster creds in CI).
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: cloud-copilot
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - list:
+        elements:
+          - { env: staging, namespace: cloud-copilot-staging, autoSync: "true" }
+          - { env: prod, namespace: cloud-copilot, autoSync: "false" }
+  template:
+    metadata:
+      name: "cloud-copilot-{{ .env }}"
+      labels: { app.kubernetes.io/part-of: cloud-copilot, env: "{{ .env }}" }
+    spec:
+      project: cloud-copilot
+      source:
+        repoURL: https://github.com/raeeed08/cloud-copilot.git
+        targetRevision: main
+        path: deploy/helm/cloud-copilot
+        helm:
+          releaseName: cloud-copilot
+          valueFiles: ["../../environments/{{ .env }}.yaml"]
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{ .namespace }}"
+      syncPolicy:
+        syncOptions: [CreateNamespace=true, ServerSideApply=true]
+        retry: { limit: 5, backoff: { duration: 10s, factor: 2, maxDuration: 3m } }
+  templatePatch: |
+    {{- if eq .autoSync "true" }}
+    spec:
+      syncPolicy:
+        automated: { prune: true, selfHeal: true }
+    {{- end }}

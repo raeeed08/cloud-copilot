@@ -1,0 +1,19 @@
+image:
+  digest: ""
+config:
+  ENVIRONMENT: prod
+  DEMO_MODE: "false"
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/cloud-copilot-prod-scanner   # terraform output scanner_role_arn
+externalSecret:
+  enabled: true
+  remoteKey: cloud-copilot/prod
+ingress:
+  enabled: true
+  hosts: [{ host: copilot.example.com, paths: [{ path: /, pathType: Prefix }] }]
+  tls: [{ secretName: cloud-copilot-tls, hosts: [copilot.example.com] }]
+serviceMonitor: { enabled: true }
+prometheusRule: { enabled: true }
+scanCronJob:
+  failOn: CRITICAL

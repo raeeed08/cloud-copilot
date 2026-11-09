@@ -1,0 +1,37 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "cc.fullname" . }}
+  labels: {{- include "cc.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}{{ toYaml . | nindent 4 }}{{- end }}
+spec:
+  selector:
+    matchLabels: {{- include "cc.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}
+{{- if .Values.prometheusRule.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "cc.fullname" . }}
+  labels: {{- include "cc.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}{{ toYaml . | nindent 4 }}{{- end }}
+spec:
+  groups:
+    - name: cloud-copilot
+      rules:
+        - alert: CloudCopilotCriticalFindings
+          expr: sum(copilot_findings{severity="CRITICAL"}) > 0
+          for: 5m
+          labels: { severity: critical }
+          annotations: { summary: "Critical cloud misconfigurations are open" }
+        - alert: CloudCopilotScanJobFailed
+          expr: kube_job_status_failed{job_name=~"{{ include "cc.fullname" . }}-scan.*"} > 0
+          labels: { severity: warning }
+          annotations: { summary: "Scheduled posture scan failed" }
+{{- end }}

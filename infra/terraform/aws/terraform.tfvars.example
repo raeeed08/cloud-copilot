@@ -1,0 +1,4 @@
+region            = "eu-west-1"
+environment       = "prod"
+github_repository = "raeeed08/cloud-copilot"
+admin_cidrs       = ["203.0.113.10/32"]

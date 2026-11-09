@@ -1,0 +1,47 @@
+{{- if .Values.mcp.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cc.fullname" . }}-mcp
+  labels: {{- include "cc.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "cc.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mcp
+  template:
+    metadata:
+      labels: {{- include "cc.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: mcp
+    spec:
+      serviceAccountName: {{ include "cc.serviceAccountName" . }}
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: mcp
+          image: {{ include "cc.image" . }}
+          args: ["mcp", "--transport", "http", "--host", "0.0.0.0", "--port", "{{ .Values.mcp.port }}"]
+          ports: [{ name: mcp, containerPort: {{ .Values.mcp.port }} }]
+          envFrom: {{- include "cc.envFrom" . | nindent 12 }}
+          env: {{- include "cc.dbEnv" . | nindent 12 }}
+          readinessProbe:
+            tcpSocket: { port: mcp }
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          securityContext: {{- toYaml .Values.securityContext | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: data, mountPath: /app/data }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - { name: data, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cc.fullname" . }}-mcp
+  labels: {{- include "cc.labels" . | nindent 4 }}
+spec:
+  ports: [{ name: mcp, port: {{ .Values.mcp.port }}, targetPort: mcp }]
+  selector: {{- include "cc.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mcp
+{{- end }}

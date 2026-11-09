@@ -1,0 +1,48 @@
+{{- if .Values.scanCronJob.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "cc.fullname" . }}-scan
+  labels: {{- include "cc.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scanner
+spec:
+  schedule: {{ .Values.scanCronJob.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels: {{- include "cc.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: scanner
+            {{- with .Values.podLabels }}{{ toYaml . | nindent 12 }}{{- end }}
+        spec:
+          restartPolicy: Never
+          serviceAccountName: {{ include "cc.serviceAccountName" . }}
+          automountServiceAccountToken: {{ or (hasKey .Values.serviceAccount.annotations "eks.amazonaws.com/role-arn") (hasKey .Values.podLabels "azure.workload.identity/use") }}
+          securityContext: {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: scan
+              image: {{ include "cc.image" . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              args:
+                - scan
+                - --output=table
+                {{- if .Values.scanCronJob.failOn }}
+                - --fail-on={{ .Values.scanCronJob.failOn }}
+                {{- end }}
+              envFrom: {{- include "cc.envFrom" . | nindent 16 }}
+              env: {{- include "cc.dbEnv" . | nindent 16 }}
+              resources: {{- toYaml .Values.scanCronJob.resources | nindent 16 }}
+              securityContext: {{- toYaml .Values.securityContext | nindent 16 }}
+              volumeMounts:
+                - { name: tmp, mountPath: /tmp }
+                - { name: data, mountPath: /app/data }
+          volumes:
+            - { name: tmp, emptyDir: {} }
+            - { name: data, emptyDir: {} }
+{{- end }}
