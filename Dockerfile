@@ -19,8 +19,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY src/ src/
 COPY knowledge/ knowledge/
 COPY --from=web /web/dist/ src/cloud_copilot/web/
+# --reinstall-package: never reuse a cached wheel of our own code (same version ≠ same source)
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-editable --extra azure --extra postgres --extra otel
+    uv sync --frozen --no-dev --no-editable --reinstall-package cloud-copilot \
+      --extra azure --extra postgres --extra otel
 
 # ---------------------------------------------------------------------------- 3. runtime
 FROM python:3.12-slim AS runtime

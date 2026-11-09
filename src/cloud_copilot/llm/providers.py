@@ -11,7 +11,7 @@ PRESETS: dict[str, dict[str, Any]] = {
     "groq": {
         "label": "Groq (fast, free tier)",
         "base_url": "https://api.groq.com/openai/v1",
-        "models": ["llama-3.3-70b-versatile", "openai/gpt-oss-20b", "llama-3.1-8b-instant"],
+        "models": ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"],
         "key_url": "https://console.groq.com/keys",
         "needs_key": True,
     },

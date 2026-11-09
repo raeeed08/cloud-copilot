@@ -36,6 +36,13 @@ def test_demo_attack_paths(demo_scan: Any) -> None:
         assert all(st["technique"] is None or st["technique"].startswith("T1") for st in p["steps"])
 
 
+def test_no_credential_theft_claim_without_instance_role(demo_scan: Any) -> None:
+    paths = correlate(demo_scan.raw, demo_scan.findings)
+    legacy = next(p for p in paths if p["resource"] == "legacy-reporting")
+    assert "IAM role" not in legacy["summary"] and legacy["severity"] == "HIGH"
+    assert "IMDSv2" not in legacy["break_first"]
+
+
 def test_instance_path_requires_reachability(demo_scan: Any) -> None:
     raw = {k: dict(v) for k, v in demo_scan.raw.items()}
     aws_key = next(k for k in raw if k.startswith("aws:"))
@@ -119,3 +126,16 @@ def test_azure_portal_link() -> None:
     rid = "/subscriptions/s/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/st"
     url = console_url(_finding(Provider.AZURE, "storage", "AZ-STOR-001", rid, "st", "westeurope"))
     assert url == f"https://portal.azure.com/#@/resource{rid}/overview"
+
+
+def test_plan_works_in_a_fresh_process_without_a_scan() -> None:
+    """Regression: after an API restart, /plan was called before any engine loaded the rule registry."""
+    import subprocess
+    import sys
+
+    code = (
+        "from cloud_copilot.core.strategy import build_plan\n"
+        "p = build_plan([], [], ['AZ-AKS-003', 'S3-002', 'GONE-999'])\n"
+        "assert p['current_score'] == 100, p\n"
+    )
+    subprocess.run([sys.executable, "-c", code], check=True, timeout=60)  # noqa: S603 - fixed code

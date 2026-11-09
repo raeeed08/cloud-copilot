@@ -125,10 +125,15 @@ def aws_exposed_instance(data: dict[str, Any], idx: _Index, account: str | None)
             account=account,
             resource=name,
             summary=f"{name} is reachable from the whole internet on {', '.join(admin)}"
-            + (" and still allows IMDSv1, so a foothold leaks its IAM role credentials." if imds_v1 else "."),
+            + (
+                " and still allows IMDSv1, so a foothold leaks its IAM role credentials."
+                if imds_v1 and inst.get("instance_profile")
+                else "; a foothold gives an attacker a pivot point inside the network."
+            ),
             impact=impact,
             steps=steps,
-            break_first="Close the admin port to 0.0.0.0/0 (use SSM Session Manager), then require IMDSv2.",
+            break_first="Close the admin port to 0.0.0.0/0 (use SSM Session Manager)"
+            + (", then require IMDSv2." if severity is Severity.CRITICAL else "."),
             break_rule="EC2-001",
             finding_ids=fids,
         )

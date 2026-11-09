@@ -1,4 +1,5 @@
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { HBars, ScoreRing, SeverityStack, TrendChart, scoreTone } from "../components/charts";
 import { Card, ProviderTag, SeverityBadge, Stat, money } from "../components/ui";
 import type { Finding, Plan, Scan, TrendPoint } from "../types";
@@ -66,7 +67,7 @@ export function Overview({ scan, findings, trend, plan, onOpen, onStrategy }: {
 
       <Card className="span-7" title="AI strategy briefing" action={<span className="muted small">grounded on this scan</span>}>
         <div className="prose">
-          <Markdown>{scan.explanation || "_No briefing for this scan._"}</Markdown>
+          <Markdown remarkPlugins={[remarkGfm]}>{scan.explanation || "_No briefing for this scan._"}</Markdown>
         </div>
       </Card>
 

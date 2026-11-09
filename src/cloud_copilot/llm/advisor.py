@@ -77,6 +77,12 @@ CAPABILITIES = (
 )
 
 
+def normalise_headings(text: str) -> str:
+    """Models sometimes stack heading markers ('## ### Situation') or add a title: keep ### sections clean."""
+    text = re.sub(r"^#{1,6}\s+(#{1,6}\s+)", r"\1", text, flags=re.M)
+    return re.sub(r"^#{1,2}\s+(Remediation )?Strategy\s*\n+", "", text, count=1, flags=re.M | re.I).strip()
+
+
 class Copilot:
     def __init__(self, settings: Settings, retriever: Retriever, gateway: LLMGateway | None = None) -> None:
         self.settings = settings
@@ -263,7 +269,8 @@ class Copilot:
         )
         system = (
             "You are Cloud Copilot, acting as the user's cloud security lead. Write a remediation STRATEGY in "
-            f"{self.language} Markdown with these sections: '### Situation' (2-3 sentences: overall risk, the "
+            f"{self.language} Markdown. Start directly with the first heading (no title) and use exactly these level-3 "
+            "headings: '### Situation' (2-3 sentences: overall risk, the "
             "score, what an attacker would do first), '### Attack paths to break' (each path: one line why it "
             "is dangerous + the single change that breaks it), '### Strategy' (the phased plan: Today / This week /"
             " This month / Prevent recurrence, with rule IDs and why that order), '### Cost' (savings). Base every "
@@ -277,7 +284,7 @@ class Copilot:
                 ],
                 max_tokens=max(self.settings.llm_max_tokens, 1500),
             )
-            return red.restore(reply.text)
+            return normalise_headings(red.restore(reply.text))
         except LLMUnavailableError:
             return self.fallback_summary(active, summary, scenarios, plan)
 

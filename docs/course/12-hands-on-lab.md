@@ -32,7 +32,7 @@ open http://localhost:8000
 ## Step 2: configure the AI (3 min)
 1. Create a free key at <https://console.groq.com/keys>.
 2. Dashboard → **Settings → AI provider** → *Groq* → paste the key → **Save & test** → you must see
-   "Connected: llama-3.3-70b-versatile answered in … ms".
+   "Connected: openai/gpt-oss-120b answered in … ms".
 3. Ask the Copilot "hi": it should answer briefly with your posture, not dump findings.
 
 ## Step 3: deploy the vulnerable lab (10 min)

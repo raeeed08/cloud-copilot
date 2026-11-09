@@ -59,6 +59,14 @@ def test_gateway_retries_transient_errors(settings: Settings, fake_llm: Any) -> 
     assert len(client.chat.completions.calls) == 3
 
 
+def test_gateway_strips_reasoning_and_reports_every_model(settings: Settings, fake_llm: Any) -> None:
+    settings.llm_models = ["a"]
+    assert LLMGateway(settings, fake_llm(["<think>hmm</think>\nOK"])).complete([]).text == "OK"
+    settings.llm_models = ["m1", "m2"]
+    with pytest.raises(LLMUnavailableError, match=r"m1: ValueError.*m2: ValueError"):
+        LLMGateway(settings, fake_llm(["<think>only thoughts</think>", ""])).complete([])
+
+
 def test_gateway_stops_on_auth_error(settings: Settings, fake_llm: Any) -> None:
     settings.llm_models = ["a", "b"]
     client = fake_llm([HTTPError(401), "never reached"])
@@ -110,3 +118,10 @@ def test_relevant_findings_ranking(scanned: Any) -> None:
     findings = scanned.latest_findings(limit=5000)
     top = Copilot.relevant_findings("aks cluster local accounts", findings, k=3)
     assert top[0].service == "aks"
+
+
+def test_normalise_headings() -> None:
+    from cloud_copilot.llm.advisor import normalise_headings
+
+    raw = "# Remediation Strategy\n\n## ### Situation\nbad\n## ### Strategy\nx"
+    assert normalise_headings(raw) == "### Situation\nbad\n### Strategy\nx"

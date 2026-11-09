@@ -351,3 +351,9 @@ h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: 
   .action-meta { grid-column: 1 / -1; }
   .input.target { max-width: 160px; }
 }
+
+/* markdown tables from the AI (GFM) */
+.prose table, .msg-bubble table { border-collapse: collapse; width: 100%; font-size: 12.5px; margin: 8px 0; display: block; overflow-x: auto; }
+.prose th, .prose td, .msg-bubble th, .msg-bubble td { border: 1px solid var(--border); padding: 6px 8px; text-align: left; vertical-align: top; }
+.prose th, .msg-bubble th { background: var(--surface-2); font-weight: 600; }
+.prose { max-height: 560px; }

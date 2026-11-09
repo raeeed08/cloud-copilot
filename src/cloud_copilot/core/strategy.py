@@ -17,7 +17,7 @@ from collections import defaultdict
 from typing import Any
 
 from cloud_copilot.core.engine import score
-from cloud_copilot.core.registry import RULES
+from cloud_copilot.core.registry import RULES, load_all
 from cloud_copilot.models import Category, Finding, Severity
 
 EFFORT_POINTS = {"S": 1, "M": 2, "L": 4}
@@ -201,6 +201,7 @@ def build_plan(
     evaluated_rules: list[str],
     resolved: list[str] | None = None,
 ) -> dict[str, Any]:
+    load_all()  # the registry may not be loaded yet in a fresh process (e.g. API restart, no scan run)
     active = [f for f in findings if not f.suppressed and f.rule_id in RULES]
     by_rule: dict[str, list[Finding]] = defaultdict(list)
     for f in active:
