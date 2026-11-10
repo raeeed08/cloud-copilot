@@ -70,7 +70,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scanners: vuln,secret,misconfig
@@ -147,7 +147,7 @@ jobs:
             VERSION=ci-${{ github.sha }}
             REVISION=${{ github.sha }}
       - name: Trivy image scan (gate on fixable HIGH/CRITICAL)
-        uses: aquasecurity/trivy-action@0.29.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: cloud-copilot:ci
           severity: HIGH,CRITICAL
