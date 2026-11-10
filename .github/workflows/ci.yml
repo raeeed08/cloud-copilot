@@ -78,7 +78,7 @@ jobs:
           format: sarif
           output: trivy-fs.sarif
           skip-dirs: web/node_modules
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always()
         with: { sarif_file: trivy-fs.sarif, category: trivy-fs }
 
@@ -123,7 +123,7 @@ jobs:
           output_file_path: console,checkov.sarif
           soft_fail: true   # surfaced in code scanning; hard gate is Trivy + tflint
           skip_path: web/node_modules
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always()
         with: { sarif_file: checkov.sarif, category: checkov }
 
