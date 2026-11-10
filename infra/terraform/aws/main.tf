@@ -18,7 +18,7 @@ locals {
 # ---------------------------------------------------------------------------- network
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.16"
+  version = "~> 6.7"
 
   name            = local.name
   cidr            = "10.40.0.0/16"
