@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
         with: { version: "${{ env.UV_VERSION }}", enable-cache: true }
       - run: uv python install ${{ env.PYTHON_VERSION }}
       - run: uv sync --frozen
@@ -55,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
         with: { version: "${{ env.UV_VERSION }}" }
       - run: uv python install ${{ env.PYTHON_VERSION }} && uv sync --frozen
       - name: Bandit (Python SAST)

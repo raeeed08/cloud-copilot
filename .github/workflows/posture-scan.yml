@@ -21,7 +21,7 @@ jobs:
         with:
           role-to-assume: ${{ vars.AWS_SCANNER_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'eu-west-1' }}
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v7
       - run: uv python install 3.12 && uv sync --frozen --no-dev
       - name: Scan
         env:
