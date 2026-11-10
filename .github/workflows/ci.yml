@@ -32,7 +32,7 @@ jobs:
         run: uv run mypy
       - name: Pytest (unit, moto, API, MCP, RAG eval)
         run: uv run pytest --cov --cov-report=xml --cov-report=term --junitxml=junit.xml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: { name: python-test-results, path: "coverage.xml\njunit.xml" }
 
