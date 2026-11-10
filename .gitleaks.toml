@@ -1,0 +1,7 @@
+# Keep every default gitleaks rule; allow only the documented dummy values used in tests.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake credentials in unit tests (AWS documentation-style key, fake Groq key)"
+regexes = ['''AKIAABCDEFGHIJKLMNOP''', '''gsk_test_[0-9a-z]+''']
