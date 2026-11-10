@@ -16,7 +16,7 @@ jobs:
     if: vars.AWS_SCANNER_ROLE_ARN != ''
     environment: posture
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_SCANNER_ROLE_ARN }}
