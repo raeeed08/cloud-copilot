@@ -62,7 +62,7 @@ jobs:
         run: cosign sign --yes "${IMAGE}@${{ steps.build.outputs.digest }}"
       - name: Attest SBOM
         run: cosign attest --yes --type cyclonedx --predicate sbom.cdx.json "${IMAGE}@${{ steps.build.outputs.digest }}"
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v4
         with: { subject-name: "${{ env.IMAGE }}", subject-digest: "${{ steps.build.outputs.digest }}", push-to-registry: true }
       - name: Trivy scan of the pushed image
         uses: aquasecurity/trivy-action@0.29.0
