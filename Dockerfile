@@ -8,7 +8,7 @@ COPY web/ ./
 RUN npm run build -- --outDir /web/dist
 
 # ---------------------------------------------------------------------------- 2. python build
-FROM python:3.12-slim AS build
+FROM python:3.15-slim AS build
 COPY --from=ghcr.io/astral-sh/uv:0.5.11 /uv /usr/local/bin/uv
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 WORKDIR /app
@@ -25,7 +25,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
       --extra azure --extra postgres --extra otel
 
 # ---------------------------------------------------------------------------- 3. runtime
-FROM python:3.12-slim AS runtime
+FROM python:3.15-slim AS runtime
 ARG VERSION=dev
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="cloud-copilot" \
