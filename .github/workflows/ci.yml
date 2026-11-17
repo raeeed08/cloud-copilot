@@ -102,7 +102,7 @@ jobs:
         run: |
           tflint --init
           for d in infra/terraform/aws infra/terraform/azure; do tflint --chdir="$d" --minimum-failure-severity=error; done
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
         with: { version: v3.16.4 }
       - name: helm lint + kubeconform
         run: |
